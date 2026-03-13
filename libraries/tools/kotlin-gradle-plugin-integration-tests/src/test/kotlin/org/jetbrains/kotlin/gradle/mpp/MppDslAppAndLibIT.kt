@@ -59,7 +59,7 @@ class MppDslAppAndLibIT : KGPBaseTest() {
         gradleVersion: GradleVersion,
     ) {
         val additionalBuildArgs = buildList {
-            add("-P" + "kotlin.internal.suppressGradlePluginErrors=KotlinTargetAlreadyDeclaredError")
+            add("-Pkotlin.internal.suppressGradlePluginErrors=KotlinTargetAlreadyDeclaredError,DeprecatedKotlinNativeTargetsDiagnostic")
         }
 
         val localRepoDir = defaultLocalRepo(gradleVersion)
@@ -207,7 +207,7 @@ class MppDslAppAndLibIT : KGPBaseTest() {
                     add("assemble")
                     add("-P" + "kotlinCompileCacheBuster=${System.currentTimeMillis()}")
                     add("-P" + "kotlinCompileLogLevel=DEBUG")
-                    add("-P" + "kotlin.internal.suppressGradlePluginErrors=KotlinTargetAlreadyDeclaredError")
+                    add("-Pkotlin.internal.suppressGradlePluginErrors=KotlinTargetAlreadyDeclaredError,DeprecatedKotlinNativeTargetsDiagnostic")
                 }.toTypedArray(),
             ) {
                 assertTasksExecuted(":${libProject.projectPath.name}:assemble")

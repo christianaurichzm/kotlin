@@ -32,7 +32,7 @@ class MppDiagnosticsIt : KGPBaseTest() {
     @GradleTest
     fun testDiagnosticsRenderingSmoke(gradleVersion: GradleVersion) {
         project("diagnosticsRenderingSmoke", gradleVersion) {
-            build {
+            build("-Pkotlin.internal.suppressGradlePluginErrors=DeprecatedKotlinNativeTargetsDiagnostic") {
                 // with isolated projects enabled, the order of diagnostics blocks is non-deterministic
                 // and depends on the subproject evaluation order, so the easiest way to assert that all diagnostics blocks are present
                 // is to compare blocks ignoring the order
@@ -48,6 +48,10 @@ class MppDiagnosticsIt : KGPBaseTest() {
     fun testDeprecatedMppProperties(gradleVersion: GradleVersion) {
         for (deprecatedProperty in this.deprecatedFlags) {
             project("mppDeprecatedProperties", gradleVersion) {
+                this.gradleProperties.appendText(
+                    "kotlin.internal.suppressGradlePluginErrors=DeprecatedKotlinNativeTargetsDiagnostic${System.lineSeparator()}"
+                )
+
                 checkDeprecatedProperties(isDeprecationExpected = false)
 
                 this.gradleProperties.appendText(
@@ -59,8 +63,12 @@ class MppDiagnosticsIt : KGPBaseTest() {
                 this.buildGradleKts.writeText("")
                 checkDeprecatedProperties(isDeprecationExpected = true)
 
-                this.gradleProperties.appendText("kotlin.internal.suppressGradlePluginErrors=PreHMPPFlagsError${System.lineSeparator()}")
-                checkDeprecatedProperties(isDeprecationExpected = false)
+                checkDeprecatedProperties(
+                    isDeprecationExpected = false,
+                    buildOptions = buildOptions.copy(
+                        freeArgs = listOf("-Pkotlin.internal.suppressGradlePluginErrors=DeprecatedKotlinNativeTargetsDiagnostic,PreHMPPFlagsError")
+                    ),
+                )
             }
         }
     }
@@ -141,7 +149,7 @@ class MppDiagnosticsIt : KGPBaseTest() {
     fun testSuppressGradlePluginErrors(gradleVersion: GradleVersion) {
         project("suppressGradlePluginErrors", gradleVersion) {
             // build succeeds
-            build("assemble") {
+            build("assemble", "-Pkotlin.internal.suppressGradlePluginErrors=CommonMainOrTestWithDependsOnDiagnostic,DeprecatedKotlinNativeTargetsDiagnostic") {
                 assertEqualsToFile(expectedOutputFile(), extractProjectsAndTheirDiagnostics())
             }
         }
@@ -162,7 +170,7 @@ class MppDiagnosticsIt : KGPBaseTest() {
     @GradleTest
     fun testSuppressGradlePluginWarnings(gradleVersion: GradleVersion) {
         project("suppressGradlePluginWarnings", gradleVersion) {
-            build("assemble") {
+            build("assemble", "-Pkotlin.internal.suppressGradlePluginErrors=DeprecatedKotlinNativeTargetsDiagnostic") {
                 assertEqualsToFile(expectedOutputFile(), extractProjectsAndTheirDiagnostics())
             }
         }
@@ -214,7 +222,7 @@ class MppDiagnosticsIt : KGPBaseTest() {
     @GradleTest
     fun testEarlyTasksMaterializationDoesntBreakReports(gradleVersion: GradleVersion) {
         project("earlyTasksMaterializationDoesntBreakReports", gradleVersion) {
-            buildAndFail("assemble") {
+            buildAndFail("assemble", "-Pkotlin.internal.suppressGradlePluginErrors=DeprecatedKotlinNativeTargetsDiagnostic") {
                 assertEqualsToFile(expectedOutputFile(), extractProjectsAndTheirDiagnostics())
             }
         }
@@ -336,8 +344,11 @@ class MppDiagnosticsIt : KGPBaseTest() {
         return projectPath.resolve("expectedOutput$suffixIfAny.txt").toFile()
     }
 
-    private fun TestProject.checkDeprecatedProperties(isDeprecationExpected: Boolean) {
-        build {
+    private fun TestProject.checkDeprecatedProperties(
+        isDeprecationExpected: Boolean,
+        buildOptions: BuildOptions = this.buildOptions,
+    ) {
+        build(buildOptions = buildOptions) {
             if (isDeprecationExpected)
                 output.assertHasDiagnostic(KotlinToolingDiagnostics.PreHMPPFlagsError)
             else

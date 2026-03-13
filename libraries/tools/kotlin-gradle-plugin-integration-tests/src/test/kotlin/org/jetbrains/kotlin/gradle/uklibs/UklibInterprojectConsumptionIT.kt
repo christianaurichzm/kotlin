@@ -26,7 +26,7 @@ class UklibInterprojectConsumptionIT : KGPBaseTest() {
     fun `interproject uklib consumption - dependency with symmetric targets - resolves uklibs`(gradleVersion: GradleVersion) {
         val targets: KotlinMultiplatformExtension.() -> Unit = {
             iosArm64()
-            @Suppress("DEPRECATION") // fixme: KT-81704 Cleanup tests after apple x64 family deprecation
+            @Suppress("DEPRECATION_ERROR") // fixme: KT-81704 Cleanup tests after apple x64 family deprecation
             iosX64()
             jvm()
             js()
@@ -241,7 +241,7 @@ class UklibInterprojectConsumptionIT : KGPBaseTest() {
     fun `interproject ide resolution - dependency with symmetric targets`(gradleVersion: GradleVersion) {
         val targets: KotlinMultiplatformExtension.() -> Unit = {
             iosArm64()
-            @Suppress("DEPRECATION") // fixme: KT-81704 Cleanup tests after apple x64 family deprecation
+            @Suppress("DEPRECATION_ERROR") // fixme: KT-81704 Cleanup tests after apple x64 family deprecation
             iosX64()
             jvm()
             js()
@@ -327,7 +327,7 @@ class UklibInterprojectConsumptionIT : KGPBaseTest() {
     fun `interproject ide resolution - dependency with symmetric targets - with commonization`(gradleVersion: GradleVersion) {
         val targets: KotlinMultiplatformExtension.() -> Unit = {
             iosArm64()
-            @Suppress("DEPRECATION") // fixme: KT-81704 Cleanup tests after apple x64 family deprecation
+            @Suppress("DEPRECATION_ERROR") // fixme: KT-81704 Cleanup tests after apple x64 family deprecation
             iosX64()
             sourceSets.commonMain.get().compileSource("class Common")
         }
