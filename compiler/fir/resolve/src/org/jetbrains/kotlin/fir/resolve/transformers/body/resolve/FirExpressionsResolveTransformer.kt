@@ -1764,7 +1764,11 @@ open class FirExpressionsResolveTransformer(transformer: FirAbstractBodyResolveT
             }
             is FirResolvedReifiedParameterReference -> {
                 val symbol = lhs.symbol
-                symbol.constructType()
+                if (session.languageVersionSettings.supportsFeature(LanguageFeature.DnnTypeForUnboundedReifiedTypeParameters)) {
+                    symbol.constructType().makeConeTypeDefinitelyNotNullOrNotNull(session.typeContext)
+                } else {
+                    symbol.constructType()
+                }
             }
             else -> {
                 if (!shouldComputeTypeOfGetClassCallWithNotQualifierInLhs(getClassCall)) return transformedGetClassCall
