@@ -65,4 +65,9 @@ fun box() = abiTest {
     expectFailure(linkage("Function 'aliasFun' can not be called: No function found for symbol '/aliasFun#companion@A'")) { aliasCall() }
     expectSuccess("aliasToClassFun") { aliasToClassFunCall() }
     expectSuccess("classToAliasFun") { classToAliasFunCall() }
+
+    expectSuccess("moved") { movedToParentClassFun() }
+    expectSuccess(42) { movedToParentClassProp() }
+    expectFailure(linkage("Function 'movedToParentInterfaceFun' can not be called: No function found for symbol '/Derived.movedToParentInterfaceFun'")) { movedToParentInterfaceFun() }
+    expectFailure(linkage("Property accessor 'movedToParentInterfaceProp.<get-movedToParentInterfaceProp>' can not be called: No property accessor found for symbol '/Derived.movedToParentInterfaceProp.<get-movedToParentInterfaceProp>'")) { movedToParentInterfaceProp() }
 }
