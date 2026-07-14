@@ -68,6 +68,10 @@ internal object CheckArguments : ResolutionStage() {
                     sink.markCandidateForCompatibilityResolve()
                 }
             }
+
+            candidate.shouldHaveLowPriorityDueToNumericClassConversion() -> {
+                sink.reportDiagnostic(LowerPriorityForNumericClassConversion)
+            }
         }
     }
 
@@ -125,6 +129,8 @@ private fun Candidate.prepareExpectedType(
             }
         }
             ?: getExpectedTypeWithImplicitIntegerCoercion(context.session, argument, parameter, basicExpectedType)
+            ?: getExpectedTypeWithBuiltinToNumericClassConversion(context.session, argument, basicExpectedType)
+            ?: getExpectedTypeWithNumericClassToBuiltinConversion(context.session, argument, basicExpectedType)
             ?: basicExpectedType
     return this.substitutor.substituteOrSelf(expectedType)
 }
@@ -229,6 +235,38 @@ private fun getExpectedTypeWithImplicitIntegerCoercion(
         }
 
     return argumentType?.withNullabilityOf(candidateExpectedType, session.typeContext)
+}
+
+private fun Candidate.getExpectedTypeWithBuiltinToNumericClassConversion(
+    session: FirSession,
+    argument: FirExpression,
+    candidateExpectedType: ConeKotlinType,
+): ConeKotlinType? {
+    val argumentType = when {
+        argument.isIntegerLiteralOrOperatorCall() -> argument.resolvedType
+        argument is FirLiteralExpression -> argument.resolvedType
+        else -> argument.toReference(session)?.toResolvedCallableSymbol()?.takeIf { it.rawStatus.isConst }?.resolvedReturnType
+    }
+
+    val expectedTypeSymbol = candidateExpectedType.fullyExpandedType(session).toSymbol(session) ?: return null
+    if (argumentType == null || !expectedTypeSymbol.supportsNumericClassConversionFrom(argumentType, session)) return null
+
+    return argumentType.withNullabilityOf(candidateExpectedType, session.typeContext)
+        .also { markUseOfNumericClassConversion() }
+}
+
+context(context: ResolutionContext)
+private fun Candidate.getExpectedTypeWithNumericClassToBuiltinConversion(
+    session: FirSession,
+    argument: FirExpression,
+    candidateExpectedType: ConeKotlinType,
+): ConeKotlinType? {
+    val argumentType = argument.toReference(session)?.toResolvedCallableSymbol()
+        ?.let { context.bodyResolveComponents.returnTypeCalculator.tryCalculateReturnType(it) }
+        ?.coneType
+    if (argumentType == null || argumentType.toSymbol(session)?.supportsNumericClassConversionTo(candidateExpectedType, session) != true) return null
+    return argumentType.withNullabilityOf(candidateExpectedType, session.typeContext)
+        .also { markUseOfNumericClassConversion() }
 }
 
 private fun FirExpression.namedReferenceWithCandidate(): FirNamedReferenceWithCandidate? =
