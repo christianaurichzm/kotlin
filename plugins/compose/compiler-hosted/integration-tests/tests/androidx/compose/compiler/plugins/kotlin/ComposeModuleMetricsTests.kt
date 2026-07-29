@@ -96,7 +96,7 @@ class ComposeModuleMetricsTests : AbstractMetricsTransformTest() {
             )
             restartable skippable fun D(
               stable d: Int = @static 0
-              unused stable content: Function2<Composer, Int, Unit>? = @static <expression>
+              unused stable content: Function2<Composer, Int, Unit>? = @dynamic <expression>
             )
             restartable fun E(
               unstable e: Unstable
