@@ -13,19 +13,19 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.StandardClassIds
+import org.jetbrains.kotlin.types.ConstantValueKind
 
 /**
  * @see org.jetbrains.kotlin.light.classes.symbol.annotations.GranularAnnotationsBox.Companion
  */
 abstract class FirAnnotationsPlatformSpecificSupportComponent :
     FirComposableSessionComponent<FirAnnotationsPlatformSpecificSupportComponent> {
-    abstract val requiredAnnotationsWithArguments: Set<ClassId>
+    abstract val requiredAnnotationsWithArguments: CompilerRequiredParametersMap
 
-    /**
-     * Set of enum [ClassId]s that are resolved as part of [requiredAnnotationsWithArguments].
-     */
-    abstract val requiredArguments: Set<ClassId>
-
+    val requiredArguments: Set<ClassId>
+        get() = requiredAnnotationsWithArguments.flatMap { it.value }.mapNotNullTo(mutableSetOf()) {
+            (it.kind as? FirCraParameterKind.EnumParameter)?.enumClassId
+        }
     abstract val requiredAnnotations: Set<ClassId>
     abstract val volatileAnnotations: Set<ClassId>
     protected abstract val repeatableAnnotations: Set<ClassId>
@@ -65,10 +65,14 @@ abstract class FirAnnotationsPlatformSpecificSupportComponent :
         override val components: List<FirAnnotationsPlatformSpecificSupportComponent>,
     ) : FirAnnotationsPlatformSpecificSupportComponent(),
         FirComposableSessionComponent.Composed<FirAnnotationsPlatformSpecificSupportComponent> {
-        override val requiredAnnotationsWithArguments: Set<ClassId> =
-            components.flatMapTo(mutableSetOf()) { it.requiredAnnotationsWithArguments }
+        override val requiredAnnotationsWithArguments: CompilerRequiredParametersMap = buildCompilerRequiredParametersMap {
+            components.forEach {
+                it.requiredAnnotationsWithArguments.forEach { [key, value] ->
+                    getOrPut(key) { [] }.addAll(value)
+                }
+            }
+        }
 
-        override val requiredArguments: Set<ClassId> = components.flatMapTo(mutableSetOf()) { it.requiredArguments }
         override val requiredAnnotations: Set<ClassId> = components.flatMapTo(mutableSetOf()) { it.requiredAnnotations }
         override val volatileAnnotations: Set<ClassId> = components.flatMapTo(mutableSetOf()) { it.volatileAnnotations }
         override val repeatableAnnotations: Set<ClassId> = components.flatMapTo(mutableSetOf()) { it.repeatableAnnotations }
@@ -97,19 +101,39 @@ abstract class FirAnnotationsPlatformSpecificSupportComponent :
     }
 
     object Default : FirAnnotationsPlatformSpecificSupportComponent() {
-        override val requiredAnnotationsWithArguments: Set<ClassId> = setOf(
-            StandardClassIds.Annotations.Deprecated,
-            StandardClassIds.Annotations.Target,
-            StandardClassIds.Annotations.DeprecatedSinceKotlin,
-            StandardClassIds.Annotations.SinceKotlin,
-        )
+        override val requiredAnnotationsWithArguments: CompilerRequiredParametersMap = buildCompilerRequiredParametersMap {
+            StandardClassIds.Annotations.Deprecated.addEnumCompilerRequiredArgument(
+                name = StandardClassIds.Annotations.ParameterNames.deprecatedLevel,
+                enumClassId = StandardClassIds.DeprecationLevel,
+                position = 2,
+            )
+            StandardClassIds.Annotations.Target.addVarargEnumCompilerRequiredArgument(
+                name = StandardClassIds.Annotations.ParameterNames.targetAllowedTargets,
+                enumClassId = StandardClassIds.AnnotationTarget,
+            )
+            StandardClassIds.Annotations.DeprecatedSinceKotlin.addLiteralCompilerRequiredArgument(
+                name = StandardClassIds.Annotations.ParameterNames.deprecatedSinceKotlinWarningSince,
+                position = 0,
+                kind = ConstantValueKind.String,
+            )
+            StandardClassIds.Annotations.DeprecatedSinceKotlin.addLiteralCompilerRequiredArgument(
+                name = StandardClassIds.Annotations.ParameterNames.deprecatedSinceKotlinErrorSince,
+                position = 1,
+                kind = ConstantValueKind.String,
+            )
+            StandardClassIds.Annotations.DeprecatedSinceKotlin.addLiteralCompilerRequiredArgument(
+                name = StandardClassIds.Annotations.ParameterNames.deprecatedSinceKotlinHiddenSince,
+                position = 2,
+                kind = ConstantValueKind.String,
+            )
+            StandardClassIds.Annotations.SinceKotlin.addLiteralCompilerRequiredArgument(
+                name = StandardClassIds.Annotations.ParameterNames.sinceKotlinVersion,
+                position = 0,
+                kind = ConstantValueKind.String,
+            )
+        }
 
-        override val requiredArguments: Set<ClassId> = setOf(
-            StandardClassIds.DeprecationLevel,
-            StandardClassIds.AnnotationTarget,
-        )
-
-        override val requiredAnnotations: Set<ClassId> = requiredAnnotationsWithArguments + setOf(
+        override val requiredAnnotations: Set<ClassId> = requiredAnnotationsWithArguments.keys + setOf(
             StandardClassIds.Annotations.WasExperimental,
             StandardClassIds.Annotations.EqualityBound,
         )
@@ -137,6 +161,67 @@ abstract class FirAnnotationsPlatformSpecificSupportComponent :
             backingFieldAnnotations: List<FirAnnotation>,
         ): AnnotationsPosition? {
             return null
+        }
+    }
+
+    protected typealias CompilerRequiredParametersMap = Map<ClassId, List<FirCompilerRequiredParameterDescription>>
+
+    companion object {
+        @JvmStatic
+        protected inline fun buildCompilerRequiredParametersMap(
+            block: MutableMap<ClassId, MutableList<FirCompilerRequiredParameterDescription>>.() -> Unit
+        ): Map<ClassId, List<FirCompilerRequiredParameterDescription>> {
+            return buildMap(block)
+        }
+
+        @JvmStatic
+        context(map: MutableMap<ClassId, MutableList<FirCompilerRequiredParameterDescription>>)
+        protected fun ClassId.addLiteralCompilerRequiredArgument(
+            name: Name,
+            position: Int,
+            kind: ConstantValueKind,
+        ) {
+            map.getOrPut(this) { [] }.add(
+                FirCompilerRequiredParameterDescription(
+                    name = name,
+                    annotationClassId = this,
+                    kind = FirCraParameterKind.LiteralParameter(kind),
+                    position = position,
+                )
+            )
+        }
+
+        @JvmStatic
+        context(map: MutableMap<ClassId, MutableList<FirCompilerRequiredParameterDescription>>)
+        protected fun ClassId.addEnumCompilerRequiredArgument(
+            name: Name,
+            position: Int,
+            enumClassId: ClassId,
+        ) {
+            map.getOrPut(this) { [] }.add(
+                FirCompilerRequiredParameterDescription(
+                    name = name,
+                    annotationClassId = this,
+                    kind = FirCraParameterKind.EnumParameter(enumClassId, isVararg = false),
+                    position = position,
+                )
+            )
+        }
+
+        @JvmStatic
+        context(map: MutableMap<ClassId, MutableList<FirCompilerRequiredParameterDescription>>)
+        protected fun ClassId.addVarargEnumCompilerRequiredArgument(
+            name: Name,
+            enumClassId: ClassId,
+        ) {
+            map.getOrPut(this) { [] }.add(
+                FirCompilerRequiredParameterDescription(
+                    name = name,
+                    annotationClassId = this,
+                    kind = FirCraParameterKind.EnumParameter(enumClassId, isVararg = true),
+                    position = null,
+                )
+            )
         }
     }
 }
