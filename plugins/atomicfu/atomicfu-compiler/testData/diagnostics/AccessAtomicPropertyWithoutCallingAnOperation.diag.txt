@@ -1,1 +1,45 @@
+/AccessAtomicPropertyWithoutCallingAnOperation.kt:31:17: error: Atomic properties can only be accessed as receivers of atomic operations: `'tai'`.
+
+/AccessAtomicPropertyWithoutCallingAnOperation.kt:32:17: error: Atomic properties can only be accessed as receivers of atomic operations: `'tal'`.
+
+/AccessAtomicPropertyWithoutCallingAnOperation.kt:33:17: error: Atomic properties can only be accessed as receivers of atomic operations: `'tab'`.
+
+/AccessAtomicPropertyWithoutCallingAnOperation.kt:34:17: error: Atomic properties can only be accessed as receivers of atomic operations: `'tar'`.
+
+/AccessAtomicPropertyWithoutCallingAnOperation.kt:35:17: error: Atomic properties can only be accessed as receivers of atomic operations: `'taia'`.
+
+/AccessAtomicPropertyWithoutCallingAnOperation.kt:36:17: error: Atomic properties can only be accessed as receivers of atomic operations: `'tala'`.
+
+/AccessAtomicPropertyWithoutCallingAnOperation.kt:37:17: error: Atomic properties can only be accessed as receivers of atomic operations: `'taba'`.
+
+/AccessAtomicPropertyWithoutCallingAnOperation.kt:38:17: error: Atomic properties can only be accessed as receivers of atomic operations: `'tara'`.
+
+/AccessAtomicPropertyWithoutCallingAnOperation.kt:40:17: error: Atomic properties can only be accessed as receivers of atomic operations: `'ai'`.
+
+/AccessAtomicPropertyWithoutCallingAnOperation.kt:41:17: error: Atomic properties can only be accessed as receivers of atomic operations: `'al'`.
+
+/AccessAtomicPropertyWithoutCallingAnOperation.kt:42:17: error: Atomic properties can only be accessed as receivers of atomic operations: `'ab'`.
+
+/AccessAtomicPropertyWithoutCallingAnOperation.kt:43:17: error: Atomic properties can only be accessed as receivers of atomic operations: `'ar'`.
+
+/AccessAtomicPropertyWithoutCallingAnOperation.kt:44:17: error: Atomic properties can only be accessed as receivers of atomic operations: `'aia'`.
+
+/AccessAtomicPropertyWithoutCallingAnOperation.kt:45:17: error: Atomic properties can only be accessed as receivers of atomic operations: `'ala'`.
+
+/AccessAtomicPropertyWithoutCallingAnOperation.kt:46:17: error: Atomic properties can only be accessed as receivers of atomic operations: `'aba'`.
+
+/AccessAtomicPropertyWithoutCallingAnOperation.kt:47:17: error: Atomic properties can only be accessed as receivers of atomic operations: `'ara'`.
+
+/AccessAtomicPropertyWithoutCallingAnOperation.kt:51:9: error: Atomic properties can only be accessed as receivers of atomic operations: `'ar'`.
+
+/AccessAtomicPropertyWithoutCallingAnOperation.kt:52:17: error: Atomic properties can only be accessed as receivers of atomic operations: `'ar'`.
+
 /AccessAtomicPropertyWithoutCallingAnOperation.kt:56:18: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'ar as? AtomicRef<Any?>'`.
+
+/AccessAtomicPropertyWithoutCallingAnOperation.kt:60:9: error: Atomic properties can only be accessed as receivers of atomic operations: `'ai'`.
+
+/AccessAtomicPropertyWithoutCallingAnOperation.kt:61:16: error: Atomic properties can only be accessed as receivers of atomic operations: `'ai'`.
+
+/AccessAtomicPropertyWithoutCallingAnOperation.kt:62:26: error: Atomic properties can only be accessed as receivers of atomic operations: `'ai'`.
+
+/AccessAtomicPropertyWithoutCallingAnOperation.kt:63:17: error: Atomic properties can only be accessed as receivers of atomic operations: `'ai'`.

@@ -30,5 +30,6 @@ object AtomicfuErrors : KtDiagnosticsContainer() {
     val ATOMIC_ARRAY_EXTENSION_PROPERTIES_ARE_FORBIDDEN by error1<KtProperty, String>(SourceElementPositioningStrategies.DECLARATION_NAME)
     val NULLABLE_ATOMIC_PROPERTIES_ARE_FORBIDDEN by error1<KtProperty, String>(SourceElementPositioningStrategies.DECLARATION_RETURN_TYPE)
     val ATOMIC_TYPE_OPERATOR_IS_FORBIDDEN by error1<KtExpression, String>(SourceElementPositioningStrategies.DEFAULT)
+    val ATOMIC_PROPERTY_ACCESS_WITHOUT_OPERATION by error1<KtExpression, String>(SourceElementPositioningStrategies.DEFAULT)
     override fun getRendererFactory(): BaseDiagnosticRendererFactory = AtomicfuErrorMessages
 }
