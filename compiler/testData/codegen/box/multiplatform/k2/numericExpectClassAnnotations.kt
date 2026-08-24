@@ -81,8 +81,25 @@ fun common(): String {
     val _ignore1: OverloadVariant.Int = acceptNSIntegerOrInt(20)
     val _ignore2: OverloadVariant.Long = acceptLongOrInt(getNSInteger())
 
+    var a: NSInteger = 10
+    acceptNSInteger(a)
+    acceptLong(a)
+    a = 20
+    acceptNSInteger(a)
+    acceptLong(a)
+
+    var b: Long = getNSInteger()
+    acceptLong(b)
+    b = getNSInteger()
+    acceptLong(b)
+
+    var c: ULong = getSize()
+    acceptULong(c)
+    c = getSize()
+    acceptULong(c)
+
     return when {
-        sum == 1_000_000_000_175L -> "OK"
+        sum == 1_000_000_000_295L -> "OK"
         else -> "FAIL: sum = $sum"
     }
 }
