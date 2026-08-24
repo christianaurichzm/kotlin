@@ -7,6 +7,7 @@ package test.collections
 
 import kotlin.test.*
 
+@Suppress("RETURN_VALUE_NOT_USED_COERCION")
 class IndexOverflowJVMTest {
 
     companion object {
