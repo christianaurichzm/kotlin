@@ -29,6 +29,9 @@ expect class NSInteger {
     fun toLong(): Long
     fun toFloat(): Float
     fun toDouble(): Double
+
+    operator fun compareTo(other: NSInteger): Int
+    operator fun compareTo(other: Long): Int
 }
 
 expect fun acceptNSInteger(num: NSInteger)
@@ -99,6 +102,7 @@ fun common(): String {
     acceptULong(c)
 
     return when {
+        a <= 0 -> "FAIL: a == $a <= 0"
         sum == 1_000_000_000_295L -> "OK"
         else -> "FAIL: sum = $sum"
     }
