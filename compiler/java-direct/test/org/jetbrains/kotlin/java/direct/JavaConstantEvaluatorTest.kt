@@ -9,9 +9,9 @@ package org.jetbrains.kotlin.java.direct
 
 import com.intellij.java.syntax.element.JavaSyntaxElementType
 import org.jetbrains.kotlin.java.direct.model.JavaClassOverAst
-import org.jetbrains.kotlin.java.direct.parse.JavaLightNode
-import org.jetbrains.kotlin.java.direct.parse.JavaLightTree
 import org.jetbrains.kotlin.java.direct.util.ConstantEvaluator
+import org.jetbrains.kotlin.kmp.tree.LightNode
+import org.jetbrains.kotlin.kmp.tree.MultiplatformBasedLightTree
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
@@ -92,7 +92,7 @@ class JavaConstantEvaluatorTest : JavaParsingTestBase() {
         assertEquals(null to "MISSING", captured)
     }
 
-    private fun findReferenceExpression(tree: JavaLightTree, node: JavaLightNode, text: String): JavaLightNode? {
+    private fun findReferenceExpression(tree: MultiplatformBasedLightTree, node: LightNode, text: String): LightNode? {
         if (tree.getType(node) == JavaSyntaxElementType.REFERENCE_EXPRESSION && tree.getText(node).toString() == text) {
             return node
         }

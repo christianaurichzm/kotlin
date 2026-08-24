@@ -1,5 +1,4 @@
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
-import java.net.URI
 
 plugins {
     id("common-configuration")
@@ -33,6 +32,15 @@ kotlin {
                 srcDir("common/src")
             }
         }
+        val jvmMain = getByName("jvmMain") {
+            dependencies {
+                implementation(project(":compiler:psi:psi-api"))
+                implementation(intellijCore())
+            }
+            kotlin {
+                srcDir("jvmMain/src")
+            }
+        }
         val jvmTest = getByName("jvmTest") {
             dependencies {
                 implementation(project(":compiler:psi:psi-api"))
@@ -49,7 +57,7 @@ kotlin {
                 implementation(kotlinTest("junit5"))
             }
             kotlin {
-                srcDir("jvm/test")
+                srcDir("jvmTest/test")
             }
         }
     }

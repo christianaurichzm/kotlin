@@ -3,7 +3,7 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-package org.jetbrains.kotlin.java.direct.parse
+package org.jetbrains.kotlin.kmp.tree
 
 import com.intellij.java.syntax.JavaSyntaxDefinition
 import com.intellij.lang.LighterASTNode
@@ -17,31 +17,31 @@ import com.intellij.util.diff.FlyweightCapableTreeStructure
 import org.jetbrains.annotations.TestOnly
 
 /**
- * Identifier for a node within a [JavaLightTree], encoded in a single Int.
+ * Identifier for a node within a [MultiplatformBasedLightTree], encoded in a single Int.
  *
  * Encoding:
  *  - Non-negative values `[0..markerCount-1]`: composite (START) marker index.
- *  - `markerCount` (i.e. [JavaLightTree.rootIndex]): the synthetic file root that wraps all
+ *  - `markerCount` (i.e. [MultiplatformBasedLightTree.rootIndex]): the synthetic file root that wraps all
  *    top-level productions.
  *  - Negative values: token index encoded as `-(tokenIndex + 1)`. So `-1` is token at index 0.
- *  - `Int.MIN_VALUE`: invalid / "not computed" sentinel ([JavaLightTree.NO_NODE]).
+ *  - `Int.MIN_VALUE`: invalid / "not computed" sentinel ([MultiplatformBasedLightTree.NO_NODE]).
  *
  * Since equality alone does not distinguish nodes from different trees. Higher-level abstractions
  * need to compare both the node and the owning tree.
  */
 @JvmInline
-value class JavaLightNode(val index: Int)
+value class LightNode(val index: Int)
 
 /**
  * Flat-array AST representation produced from a [SyntaxTreeBuilder]. Holds the raw
  * [ProductionMarkerList] / [TokenList] plus precomputed lookup arrays that permit O(1)
  * access to parent, children, and node type,precomputed during construction (in
- * [buildJavaLightTree]).
+ * [buildLanguageSpecificLightTree]).
  *
  * Inspired by Kotlin's internal LightTree implementation, but with an eager lookup computation
  * and without using IJ platform dependencies, aside from new parsing infrastructure.
  */
-class JavaLightTree(
+open class MultiplatformBasedLightTree(
     val tokens: TokenList,
     val source: CharSequence,
     /** For each START-marker index, the START-marker index of its parent (or [rootIndex] for top-level markers). */
@@ -63,7 +63,7 @@ class JavaLightTree(
      * Each entry is a [ChildrenList] backed by an [IntArray] of child node indices.
      * Error markers and tokens map to [emptyList].
      */
-    private val childrenByIndex: Array<List<JavaLightNode>>,
+    private val childrenByIndex: Array<List<LightNode>>,
     /**
      * Precomputed end offsets for composite nodes, indexed by START-marker index.
      * For normal composites this is the DONE marker's end offset; for error markers
@@ -74,6 +74,10 @@ class JavaLightTree(
      * Precomputed start offsets for composite nodes, indexed by START-marker index.
      */
     private val compositeStartOffsets: IntArray,
+    /**
+     * TBD
+     */
+    buildLanguageSpecificTreeStructure: (MultiplatformBasedLightTree) -> FlyweightCapableTreeStructure<LighterASTNode>,
 ) {
     /**
      * Memoized [FlyweightCapableTreeStructure] adapter over this tree, used to build
@@ -81,17 +85,17 @@ class JavaLightTree(
      * elements from the same file share a single tree structure (stable identity/equality).
      */
     val lightSourceTreeStructure: FlyweightCapableTreeStructure<LighterASTNode> by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        JavaLightTreeStructure(this)
+        buildLanguageSpecificTreeStructure(this)
     }
 
-    fun getRoot(): JavaLightNode = JavaLightNode(rootIndex)
+    fun getRoot(): LightNode = LightNode(rootIndex)
 
-    private fun isSyntheticRoot(node: JavaLightNode): Boolean = node.index == rootIndex
+    private fun isSyntheticRoot(node: LightNode): Boolean = node.index == rootIndex
 
-    fun isComposite(node: JavaLightNode): Boolean = node.index in 0..rootIndex
-    fun isToken(node: JavaLightNode): Boolean = node.index < 0 && node.index != Int.MIN_VALUE
+    fun isComposite(node: LightNode): Boolean = node.index in 0..rootIndex
+    fun isToken(node: LightNode): Boolean = node.index < 0 && node.index != Int.MIN_VALUE
 
-    fun getType(node: JavaLightNode): SyntaxElementType {
+    fun getType(node: LightNode): SyntaxElementType {
         val idx = node.index
         if (idx >= 0) {
             // Composite (including synthetic root at idx == rootIndex)
@@ -102,23 +106,23 @@ class JavaLightTree(
         return tokens.getTokenType(tokenIdx) ?: error("No token type at index $tokenIdx")
     }
 
-    fun getStartOffset(node: JavaLightNode): Int {
+    fun getStartOffset(node: LightNode): Int {
         val idx = node.index
         if (idx >= 0) return if (idx == rootIndex) 0 else compositeStartOffsets[idx]
         val tokenIdx = -(idx + 1)
         return tokens.getTokenStart(tokenIdx)
     }
 
-    fun getEndOffset(node: JavaLightNode): Int {
+    fun getEndOffset(node: LightNode): Int {
         val idx = node.index
         if (idx >= 0) return if (idx == rootIndex) source.length else compositeEndOffsets[idx]
         val tokenIdx = -(idx + 1)
         return tokens.getTokenEnd(tokenIdx)
     }
 
-    fun getText(node: JavaLightNode): CharSequence = source.subSequence(getStartOffset(node), getEndOffset(node))
+    fun getText(node: LightNode): CharSequence = source.subSequence(getStartOffset(node), getEndOffset(node))
 
-    fun textEquals(node: JavaLightNode, expected: String): Boolean {
+    fun textEquals(node: LightNode, expected: String): Boolean {
         val start = getStartOffset(node)
         val end = getEndOffset(node)
         val length = end - start
@@ -132,27 +136,27 @@ class JavaLightTree(
     /**
      * Returns the parent of [node], or `null` for the root.
      */
-    fun getParent(node: JavaLightNode): JavaLightNode? {
+    fun getParent(node: LightNode): LightNode? {
         if (node.index == Int.MIN_VALUE) return null
         if (isSyntheticRoot(node)) return null
         return if (isComposite(node)) {
-            JavaLightNode(parentStartIndex[node.index])
+            LightNode(parentStartIndex[node.index])
         } else {
             val tokenIdx = -(node.index + 1)
-            JavaLightNode(tokenParentStart[tokenIdx])
+            LightNode(tokenParentStart[tokenIdx])
         }
     }
 
     /**
      * Returns the immediate children of [node] in source order.
      */
-    fun getChildren(node: JavaLightNode): List<JavaLightNode> {
+    fun getChildren(node: LightNode): List<LightNode> {
         val idx = node.index
         if (idx < 0) return emptyList()
         return childrenByIndex[idx]
     }
 
-    fun findChildByType(node: JavaLightNode, type: SyntaxElementType): JavaLightNode? {
+    fun findChildByType(node: LightNode, type: SyntaxElementType): LightNode? {
         val children = getChildren(node)
         for (i in children.indices) {
             val child = children[i]
@@ -161,36 +165,40 @@ class JavaLightTree(
         return null
     }
 
-    fun getChildrenByType(node: JavaLightNode, type: SyntaxElementType): List<JavaLightNode> {
+    fun getChildrenByType(node: LightNode, type: SyntaxElementType): List<LightNode> {
         val children = getChildren(node)
         if (children.isEmpty()) return emptyList()
-        return children.filterTo(ArrayList(minOf(4, children.size))) { getType(it) == type }
+        return children.filterTo(kotlin.collections.ArrayList(kotlin.comparisons.minOf(4, children.size))) { getType(it) == type }
     }
 
-    fun hasChildOfType(node: JavaLightNode, type: SyntaxElementType): Boolean = findChildByType(node, type) != null
+    fun hasChildOfType(node: LightNode, type: SyntaxElementType): Boolean = findChildByType(node, type) != null
 
     companion object {
         /** Sentinel "no node" value for use as a not-computed marker in callers. */
-        val NO_NODE: JavaLightNode = JavaLightNode(Int.MIN_VALUE)
+        val NO_NODE: LightNode = LightNode(Int.MIN_VALUE)
     }
 }
 
 /**
  * Lightweight [List] view over a precomputed [IntArray] of child node indices.
  */
-private class ChildrenList(private val indices: IntArray) : AbstractList<JavaLightNode>() {
+private class ChildrenList(private val indices: IntArray) : AbstractList<LightNode>() {
     override val size: Int get() = indices.size
-    override fun get(index: Int): JavaLightNode = JavaLightNode(indices[index])
+    override fun get(index: Int): LightNode = LightNode(indices[index])
 }
 
 /**
- * Builds a [JavaLightTree] from a populated [SyntaxTreeBuilder].
+ * Builds a [MultiplatformBasedLightTree] from a populated [SyntaxTreeBuilder].
  *
  * Performs two passes over the production markers:
  * 1. Composite and token index computation (parent, done-index, type, offsets, token-to-parent mapping).
  * 2. Children list construction.
  */
-fun buildJavaLightTree(builder: SyntaxTreeBuilder, source: CharSequence): JavaLightTree {
+fun buildLanguageSpecificLightTree(
+    builder: SyntaxTreeBuilder,
+    source: CharSequence,
+    buildLanguageSpecificTreeStructure: (MultiplatformBasedLightTree) -> FlyweightCapableTreeStructure<LighterASTNode>,
+): MultiplatformBasedLightTree {
     val productionMarkers = prepareProduction(builder).productionMarkers
     val tokens = builder.tokens
     val markerCount = productionMarkers.size
@@ -209,8 +217,8 @@ fun buildJavaLightTree(builder: SyntaxTreeBuilder, source: CharSequence): JavaLi
     )
 
     @Suppress("UNCHECKED_CAST")
-    val childrenByIndex = arrayOfNulls<List<JavaLightNode>>(markerCount + 1) as Array<List<JavaLightNode>>
-    val emptyChildren: List<JavaLightNode> = emptyList()
+    val childrenByIndex = arrayOfNulls<List<LightNode>>(markerCount + 1) as Array<List<LightNode>>
+    val emptyChildren: List<LightNode> = emptyList()
     for (idx in 0..markerCount) {
         childrenByIndex[idx] = emptyChildren
     }
@@ -223,7 +231,7 @@ fun buildJavaLightTree(builder: SyntaxTreeBuilder, source: CharSequence): JavaLi
     else
         error("No production markers")
 
-    return JavaLightTree(
+    return MultiplatformBasedLightTree(
         tokens = tokens,
         source = source,
         parentStartIndex = parentStartIndex,
@@ -234,11 +242,12 @@ fun buildJavaLightTree(builder: SyntaxTreeBuilder, source: CharSequence): JavaLi
         childrenByIndex = childrenByIndex,
         compositeEndOffsets = compositeEndOffsets,
         compositeStartOffsets = compositeStartOffsets,
+        buildLanguageSpecificTreeStructure = buildLanguageSpecificTreeStructure,
     )
 }
 
 /**
- * Pass 1 of [buildJavaLightTree]. Walks the production markers once, using a single
+ * Pass 1 of [buildLanguageSpecificLightTree]. Walks the production markers once, using a single
  * stack of pending START-marker indices to:
  * - determine each composite's parent and populate [doneForStart],
  * - extract node type / error flag / start / end offsets,
@@ -317,7 +326,7 @@ private fun buildCompositeAndTokenIndices(
 }
 
 /**
- * Pass 2 of [buildJavaLightTree]: precompute children for each composite and the synthetic root.
+ * Pass 2 of [buildLanguageSpecificLightTree]: precompute children for each composite and the synthetic root.
  * Drops whitespace and bad-character tokens everywhere; drops comments only under the synthetic
  * root so declaration `DOC_COMMENT` children remain available for `isDeprecatedInJavaDoc`.
  */
@@ -328,14 +337,15 @@ private fun buildChildrenIndex(
     rootIndex: Int,
     doneForStart: IntArray,
     errorFlags: BooleanArray,
-    childrenByIndex: Array<List<JavaLightNode>>,
-    emptyChildren: List<JavaLightNode>,
+    childrenByIndex: Array<List<LightNode>>,
+    emptyChildren: List<LightNode>,
 ) {
     fun isIncludedToken(t: Int, isRoot: Boolean): Boolean {
         val type = tokens.getTokenType(t) ?: return false
         if (tokens.getTokenStart(t) == tokens.getTokenEnd(t)) return false
         if (type === SyntaxTokenTypes.WHITE_SPACE) return false
         if (type === SyntaxTokenTypes.BAD_CHARACTER) return false
+        // TODO: abstract from language?
         if (isRoot && type in JavaSyntaxDefinition.comments) return false
         return true
     }
@@ -348,7 +358,7 @@ private fun buildChildrenIndex(
 
     fun buildChildrenFor(startIdx: Int, doneIdx: Int, firstTokenIndex: Int, lastTokenIndex: Int) {
         val isRoot = startIdx < 0
-        val childIndices = ArrayList<Int>(8)
+        val childIndices = kotlin.collections.ArrayList<Int>(8)
 
         var prevTokenIndex = firstTokenIndex
         var i = startIdx + 1
@@ -395,7 +405,7 @@ private fun buildChildrenIndex(
  * node type and (newline-escaped) text, indented by depth.
  */
 @TestOnly
-fun JavaLightTree.dump(node: JavaLightNode = getRoot(), indent: String = ""): String {
+fun MultiplatformBasedLightTree.dump(node: LightNode = getRoot(), indent: String = ""): String {
     val sb = StringBuilder()
     sb.append(indent).append(getType(node)).append(": ").append(getText(node).toString().replace("\n", "\\n")).append("\n")
     for (child in getChildren(node)) {

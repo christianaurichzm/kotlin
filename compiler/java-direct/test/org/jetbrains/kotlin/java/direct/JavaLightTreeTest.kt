@@ -10,19 +10,19 @@ package org.jetbrains.kotlin.java.direct
 import com.intellij.java.syntax.element.JavaSyntaxElementType
 import com.intellij.java.syntax.element.JavaSyntaxTokenType
 import com.intellij.platform.syntax.SyntaxElementType
-import org.jetbrains.kotlin.java.direct.parse.JavaLightNode
-import org.jetbrains.kotlin.java.direct.parse.JavaLightTree
-import org.jetbrains.kotlin.java.direct.parse.dump
 import org.jetbrains.kotlin.java.direct.parse.parseJavaToLightTree
+import org.jetbrains.kotlin.kmp.tree.LightNode
+import org.jetbrains.kotlin.kmp.tree.MultiplatformBasedLightTree
+import org.jetbrains.kotlin.kmp.tree.dump
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class JavaLightTreeTest {
 
-    private fun parse(source: String): JavaLightTree =
+    private fun parse(source: String): MultiplatformBasedLightTree =
         parseJavaToLightTree(source, 0)
 
-    private fun JavaLightTree.findFirstClass(): JavaLightNode {
+    private fun MultiplatformBasedLightTree.findFirstClass(): LightNode {
         val classes = getChildrenByType(getRoot(), JavaSyntaxElementType.CLASS)
         check(classes.isNotEmpty()) { "No CLASS node found in tree" }
         return classes.first()

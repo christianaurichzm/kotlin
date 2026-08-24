@@ -9,13 +9,13 @@ package org.jetbrains.kotlin.java.direct.util
 
 import com.intellij.java.syntax.element.JavaSyntaxTokenType
 import com.intellij.platform.syntax.SyntaxElementType
-import org.jetbrains.kotlin.java.direct.parse.JavaLightNode
-import org.jetbrains.kotlin.java.direct.parse.JavaLightTree
+import org.jetbrains.kotlin.kmp.tree.LightNode
+import org.jetbrains.kotlin.kmp.tree.MultiplatformBasedLightTree
 
 /**
  * Shared Java literal parsing and constant-expression helpers used by both
  * [ConstantEvaluator] (field initializers) and annotation argument evaluation in
- * [JavaAnnotationOverAst].
+ * [org.jetbrains.kotlin.java.direct.model.JavaAnnotationOverAst].
  *
  * The [parseIntegerLiteral] / [parseLongLiteral] / [parseFloatLiteral] / [parseDoubleLiteral]
  * / [unescapeJavaString] methods turn the textual form of Java literal tokens into Kotlin
@@ -165,7 +165,7 @@ internal object JavaLiteralParser {
      * is not a recognised literal kind; callers that need to distinguish those two cases must
      * inspect the node structure directly.
      */
-    fun evaluateLiteral(node: JavaLightNode, tree: JavaLightTree): Any? {
+    fun evaluateLiteral(node: LightNode, tree: MultiplatformBasedLightTree): Any? {
         val literalChild = tree.getChildren(node).firstOrNull() ?: return null
         val text = tree.getText(literalChild).toString()
 
@@ -194,7 +194,7 @@ internal object JavaLiteralParser {
      * doesn't produce a numeric/boolean result on two numeric operands.
      *
      * Shared between [ConstantEvaluator] (field initializer evaluation) and
-     * [JavaAnnotationOverAst] (annotation argument evaluation) so that numeric semantics stay
+     * [org.jetbrains.kotlin.java.direct.model.JavaAnnotationOverAst] (annotation argument evaluation) so that numeric semantics stay
      * consistent. Callers that need special cases (e.g. `String + x` for annotations) handle
      * those before delegating here.
      */
