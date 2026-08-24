@@ -1,0 +1,187 @@
+/CastBetweenAtomicTypes.kt:20:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mai as AtomicInt'`.
+
+/CastBetweenAtomicTypes.kt:21:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mai as? AtomicInt'`.
+
+/CastBetweenAtomicTypes.kt:23:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mai as AtomicLong'`.
+
+/CastBetweenAtomicTypes.kt:24:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mai as? AtomicLong'`.
+
+/CastBetweenAtomicTypes.kt:26:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mai as AtomicBoolean'`.
+
+/CastBetweenAtomicTypes.kt:27:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mai as? AtomicBoolean'`.
+
+/CastBetweenAtomicTypes.kt:29:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mai as AtomicRef<Any?>'`.
+
+/CastBetweenAtomicTypes.kt:30:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mai as? AtomicRef<Any?>'`.
+
+/CastBetweenAtomicTypes.kt:32:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mai as Int'`.
+
+/CastBetweenAtomicTypes.kt:33:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mai as? Int'`.
+
+/CastBetweenAtomicTypes.kt:35:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mai as AtomicIntArray'`.
+
+/CastBetweenAtomicTypes.kt:36:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mai as? AtomicIntArray'`.
+
+/CastBetweenAtomicTypes.kt:38:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mai as AtomicLongArray'`.
+
+/CastBetweenAtomicTypes.kt:39:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mai as? AtomicLongArray'`.
+
+/CastBetweenAtomicTypes.kt:41:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mai as AtomicBooleanArray'`.
+
+/CastBetweenAtomicTypes.kt:42:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mai as? AtomicBooleanArray'`.
+
+/CastBetweenAtomicTypes.kt:44:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mai as AtomicArray<Any?>'`.
+
+/CastBetweenAtomicTypes.kt:45:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mai as? AtomicArray<Any?>'`.
+
+/CastBetweenAtomicTypes.kt:51:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mar as AtomicInt'`.
+
+/CastBetweenAtomicTypes.kt:52:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mar as? AtomicInt'`.
+
+/CastBetweenAtomicTypes.kt:54:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mar as AtomicLong'`.
+
+/CastBetweenAtomicTypes.kt:55:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mar as? AtomicLong'`.
+
+/CastBetweenAtomicTypes.kt:57:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mar as AtomicBoolean'`.
+
+/CastBetweenAtomicTypes.kt:58:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mar as? AtomicBoolean'`.
+
+/CastBetweenAtomicTypes.kt:61:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mar as? AtomicRef<Any?>'`.
+
+/CastBetweenAtomicTypes.kt:63:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mar as Any'`.
+
+/CastBetweenAtomicTypes.kt:64:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mar as? Any'`.
+
+/CastBetweenAtomicTypes.kt:66:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mar as AtomicIntArray'`.
+
+/CastBetweenAtomicTypes.kt:67:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mar as? AtomicIntArray'`.
+
+/CastBetweenAtomicTypes.kt:69:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mar as AtomicLongArray'`.
+
+/CastBetweenAtomicTypes.kt:70:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mar as? AtomicLongArray'`.
+
+/CastBetweenAtomicTypes.kt:72:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mar as AtomicBooleanArray'`.
+
+/CastBetweenAtomicTypes.kt:73:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mar as? AtomicBooleanArray'`.
+
+/CastBetweenAtomicTypes.kt:75:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mar as AtomicArray<Any?>'`.
+
+/CastBetweenAtomicTypes.kt:76:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mar as? AtomicArray<Any?>'`.
+
+/CastBetweenAtomicTypes.kt:82:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'maia as AtomicInt'`.
+
+/CastBetweenAtomicTypes.kt:83:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'maia as? AtomicInt'`.
+
+/CastBetweenAtomicTypes.kt:85:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'maia as AtomicLong'`.
+
+/CastBetweenAtomicTypes.kt:86:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'maia as? AtomicLong'`.
+
+/CastBetweenAtomicTypes.kt:88:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'maia as AtomicBoolean'`.
+
+/CastBetweenAtomicTypes.kt:89:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'maia as? AtomicBoolean'`.
+
+/CastBetweenAtomicTypes.kt:91:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'maia as AtomicRef<Any?>'`.
+
+/CastBetweenAtomicTypes.kt:92:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'maia as? AtomicRef<Any?>'`.
+
+/CastBetweenAtomicTypes.kt:94:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'maia as Any'`.
+
+/CastBetweenAtomicTypes.kt:95:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'maia as? Any'`.
+
+/CastBetweenAtomicTypes.kt:97:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'maia as AtomicIntArray'`.
+
+/CastBetweenAtomicTypes.kt:98:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'maia as? AtomicIntArray'`.
+
+/CastBetweenAtomicTypes.kt:100:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'maia as AtomicLongArray'`.
+
+/CastBetweenAtomicTypes.kt:101:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'maia as? AtomicLongArray'`.
+
+/CastBetweenAtomicTypes.kt:103:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'maia as AtomicBooleanArray'`.
+
+/CastBetweenAtomicTypes.kt:104:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'maia as? AtomicBooleanArray'`.
+
+/CastBetweenAtomicTypes.kt:106:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'maia as AtomicArray<Any?>'`.
+
+/CastBetweenAtomicTypes.kt:107:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'maia as? AtomicArray<Any?>'`.
+
+/CastBetweenAtomicTypes.kt:109:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'maia[0] as Int'`.
+
+/CastBetweenAtomicTypes.kt:110:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'maia[0] as? Int'`.
+
+/CastBetweenAtomicTypes.kt:112:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'maia[0] as AtomicInt'`.
+
+/CastBetweenAtomicTypes.kt:113:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'maia[0] as? AtomicInt'`.
+
+/CastBetweenAtomicTypes.kt:119:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mara as AtomicInt'`.
+
+/CastBetweenAtomicTypes.kt:120:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mara as? AtomicInt'`.
+
+/CastBetweenAtomicTypes.kt:122:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mara as AtomicLong'`.
+
+/CastBetweenAtomicTypes.kt:123:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mara as? AtomicLong'`.
+
+/CastBetweenAtomicTypes.kt:125:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mara as AtomicBoolean'`.
+
+/CastBetweenAtomicTypes.kt:126:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mara as? AtomicBoolean'`.
+
+/CastBetweenAtomicTypes.kt:128:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mara as AtomicRef<Any?>'`.
+
+/CastBetweenAtomicTypes.kt:129:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mara as? AtomicRef<Any?>'`.
+
+/CastBetweenAtomicTypes.kt:131:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mara as Any'`.
+
+/CastBetweenAtomicTypes.kt:132:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mara as? Any'`.
+
+/CastBetweenAtomicTypes.kt:134:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mara as AtomicIntArray'`.
+
+/CastBetweenAtomicTypes.kt:135:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mara as? AtomicIntArray'`.
+
+/CastBetweenAtomicTypes.kt:137:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mara as AtomicLongArray'`.
+
+/CastBetweenAtomicTypes.kt:138:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mara as? AtomicLongArray'`.
+
+/CastBetweenAtomicTypes.kt:140:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mara as AtomicBooleanArray'`.
+
+/CastBetweenAtomicTypes.kt:141:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mara as? AtomicBooleanArray'`.
+
+/CastBetweenAtomicTypes.kt:144:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mara as? AtomicArray<String?>'`.
+
+/CastBetweenAtomicTypes.kt:146:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mara[0] as Int'`.
+
+/CastBetweenAtomicTypes.kt:147:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mara[0] as? Int'`.
+
+/CastBetweenAtomicTypes.kt:149:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mara[0] as AtomicInt'`.
+
+/CastBetweenAtomicTypes.kt:150:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mara[0] as? AtomicInt'`.
+
+/CastBetweenAtomicTypes.kt:153:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mara[0] as? AtomicRef<String?>'`.
+
+/CastBetweenAtomicTypes.kt:159:15: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mai is AtomicInt'`.
+
+/CastBetweenAtomicTypes.kt:160:15: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mai !is AtomicInt'`.
+
+/CastBetweenAtomicTypes.kt:166:15: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mar is Any'`.
+
+/CastBetweenAtomicTypes.kt:167:15: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mar !is Any'`.
+
+/CastBetweenAtomicTypes.kt:173:15: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'maia is Any'`.
+
+/CastBetweenAtomicTypes.kt:174:15: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'maia !is Any'`.
+
+/CastBetweenAtomicTypes.kt:176:15: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'maia is AtomicIntArray'`.
+
+/CastBetweenAtomicTypes.kt:177:15: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'maia !is AtomicIntArray'`.
+
+/CastBetweenAtomicTypes.kt:179:15: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'maia[0] is AtomicInt'`.
+
+/CastBetweenAtomicTypes.kt:180:15: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'maia[0] !is AtomicInt'`.
+
+/CastBetweenAtomicTypes.kt:186:15: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mara is Any'`.
+
+/CastBetweenAtomicTypes.kt:187:15: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'mara !is Any'`.
+
+/CastBetweenAtomicTypes.kt:193:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'any as AtomicInt'`.
+
+/CastBetweenAtomicTypes.kt:194:16: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'any as? AtomicInt'`.
+
+/CastBetweenAtomicTypes.kt:196:15: error: Atomic type operators are prohibited except unsafe casts between AtomicRef types or between AtomicArray types: `'any is AtomicInt'`.
