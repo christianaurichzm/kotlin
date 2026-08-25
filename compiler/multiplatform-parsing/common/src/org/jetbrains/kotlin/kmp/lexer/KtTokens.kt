@@ -25,11 +25,8 @@ object KtTokens : SyntaxElementTypesWithIds() {
     const val BLOCK_COMMENT_ID: Int = RESERVED_ID + 1
     const val EOL_COMMENT_ID: Int = BLOCK_COMMENT_ID + 1
     const val SHEBANG_COMMENT_ID: Int = EOL_COMMENT_ID + 1
-    const val DOC_COMMENT_ID: Int = SHEBANG_COMMENT_ID + 1
 
-    const val WHITE_SPACE_ID: Int = DOC_COMMENT_ID + 1
-
-    const val INTEGER_LITERAL_ID: Int = WHITE_SPACE_ID + 1
+    const val INTEGER_LITERAL_ID: Int = SHEBANG_COMMENT_ID + 1
     const val FLOAT_LITERAL_ID: Int = INTEGER_LITERAL_ID + 1
     const val CHARACTER_LITERAL_ID: Int = FLOAT_LITERAL_ID + 1
 
@@ -177,6 +174,9 @@ object KtTokens : SyntaxElementTypesWithIds() {
     const val SUSPEND_MODIFIER_ID: Int = CONST_MODIFIER_ID + 1
     const val EXPECT_MODIFIER_ID: Int = SUSPEND_MODIFIER_ID + 1
     const val ACTUAL_MODIFIER_ID: Int = EXPECT_MODIFIER_ID + 1
+
+    const val DOC_COMMENT_ID: Int = ACTUAL_MODIFIER_ID + 1
+    const val WHITE_SPACE_ID: Int = DOC_COMMENT_ID + 1
     // Remember to update the first ID constant in `KtNodeTypes` after adding a new token
 
     private val softKeywordsAndModifiers: MutableSet<SyntaxElementType> = mutableSetOf()
