@@ -1,3 +1,5 @@
+@file:Suppress("UNUSED_VARIABLE", "NAME_SHADOWING", "DEPRECATION")
+
 import org.gradle.jvm.tasks.Jar
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
@@ -56,10 +58,6 @@ fun KotlinCommonCompilerOptions.mainCompilationOptions() {
     }
 }
 
-fun KotlinCommonCompilerOptions.addReturnValueCheckerInfo() {
-    freeCompilerArgs.add("-Xreturn-value-checker=full")
-}
-
 /**
  * Between making a language feature stable and the next bootstrap, we need to keep providing the compiler argument.
  * But this produces a warning
@@ -96,6 +94,10 @@ kotlin {
 
     explicitApi()
 
+    compilerOptions {
+        freeCompilerArgs.add("-Xreturn-value-checker=full")
+    }
+
     metadata {
         compilations {
             all {
@@ -111,7 +113,6 @@ kotlin {
                             )
                         )
                         mainCompilationOptions()
-                        addReturnValueCheckerInfo()
                         suppressRedundantCliArgumentWarning()
                     }
                 }
@@ -162,7 +163,6 @@ kotlin {
                             )
                         )
                         mainCompilationOptions()
-                        addReturnValueCheckerInfo()
                     }
                 }
                 defaultSourceSet {
@@ -192,7 +192,6 @@ kotlin {
                             )
                         )
                         mainCompilationOptions()
-                        addReturnValueCheckerInfo()
                     }
                 }
             }
@@ -213,7 +212,6 @@ kotlin {
                             )
                         )
                         mainCompilationOptions()
-                        addReturnValueCheckerInfo()
                     }
                 }
             }
@@ -284,7 +282,6 @@ kotlin {
                             diagnosticNamesArg,
                         )
                     )
-                    compilerOptions.addReturnValueCheckerInfo()
                 }
             }
         }
@@ -319,7 +316,6 @@ kotlin {
             val main = getByName("main") {
                 compileTaskProvider.configure {
                     compilerOptions.mainCompilationOptions()
-                    compilerOptions.addReturnValueCheckerInfo()
                     compilerOptions.freeCompilerArgs.add("-Xir-module-name=$KOTLIN_WASM_STDLIB_NAME")
                 }
             }
@@ -353,9 +349,6 @@ kotlin {
                     "-nostdlib",
                 )
             )
-        }
-        nativeTarget.compilations["main"].compileTaskProvider.configure {
-            compilerOptions.addReturnValueCheckerInfo()
         }
     }
 
