@@ -1,0 +1,17 @@
+/CallAnyFunctions.kt:15:13: error: Atomic types do not inherit equals/hashCode/toString functions from Any: `'i.hashCode()'`.
+
+/CallAnyFunctions.kt:16:13: error: Atomic types do not inherit equals/hashCode/toString functions from Any: `'i.toString()'`.
+
+/CallAnyFunctions.kt:17:13: error: Atomic types do not inherit equals/hashCode/toString functions from Any: `'i.equals(null)'`.
+
+/CallAnyFunctions.kt:19:13: error: Atomic types do not inherit equals/hashCode/toString functions from Any: `'r.hashCode()'`.
+
+/CallAnyFunctions.kt:20:13: error: Atomic types do not inherit equals/hashCode/toString functions from Any: `'r.toString()'`.
+
+/CallAnyFunctions.kt:21:13: error: Atomic types do not inherit equals/hashCode/toString functions from Any: `'r.equals(null)'`.
+
+/CallAnyFunctions.kt:23:13: error: Atomic types do not inherit equals/hashCode/toString functions from Any: `'arr.hashCode()'`.
+
+/CallAnyFunctions.kt:24:13: error: Atomic types do not inherit equals/hashCode/toString functions from Any: `'arr.toString()'`.
+
+/CallAnyFunctions.kt:25:13: error: Atomic types do not inherit equals/hashCode/toString functions from Any: `'arr.equals(null)'`.
