@@ -98,8 +98,14 @@ kotlin {
 
     explicitApi()
 
-    compilerOptions {
-        addReturnValueCheckerInfo()
+    targets.all {
+        compilations.all {
+            compileTaskProvider.configure {
+                compilerOptions {
+                    addReturnValueCheckerInfo()
+                }
+            }
+        }
     }
 
     metadata {
