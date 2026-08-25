@@ -5,45 +5,47 @@
 
 package org.jetbrains.kotlin.fir.builder
 
-import com.intellij.openapi.util.io.FileUtilRt
 import com.intellij.platform.syntax.lexer.Lexer
 import com.intellij.platform.syntax.lexer.performLexing
 import com.intellij.platform.syntax.parser.SyntaxTreeBuilderFactory
-import com.intellij.platform.syntax.parser.prepareProduction
+import org.jetbrains.kotlin.KtSourceFile
+import org.jetbrains.kotlin.KtSourceFileLinesMapping
+import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirFile
+import org.jetbrains.kotlin.fir.lightTree.AbstractTree2Fir
 import org.jetbrains.kotlin.fir.scopes.FirScopeProvider
 import org.jetbrains.kotlin.kmp.lexer.KotlinLexer
 import org.jetbrains.kotlin.kmp.parser.AbstractParser
 import org.jetbrains.kotlin.kmp.parser.KotlinParser
 import org.jetbrains.kotlin.kmp.tree.MultiplatformBasedLightTree
 import org.jetbrains.kotlin.kmp.tree.buildLanguageSpecificLightTree
-import org.jetbrains.kotlin.readSourceFileWithMapping
-import java.io.File
-import java.nio.file.Path
 
 class MultiplatformParsing2Fir(
-    val session: FirSession,
-    val scopeProvider: FirScopeProvider,
-) {
-    fun isScript(fileName: String): Boolean = FileUtilRt.getExtension(fileName) == "kts"
-
-    fun buildFirFile(path: Path): FirFile {
-        return buildFirFile(path.toFile())
+    override val session: FirSession,
+    private val scopeProvider: FirScopeProvider,
+    private val diagnosticsReporter: DiagnosticReporter? = null,
+) : AbstractTree2Fir() {
+    override fun buildFirFile(code: CharSequence, sourceFile: KtSourceFile, linesMapping: KtSourceFileLinesMapping): FirFile {
+        val parser = KotlinParser(sourceFile.extension == "kts", isLazy = false)
+        val lightTree = buildLightTree(code, KotlinLexer(), parser)
+        return buildFirFile(lightTree, sourceFile, linesMapping)
     }
 
-    fun buildFirFile(file: File): FirFile {
-        val parser = KotlinParser(isScript(file.name), isLazy = false)
-        val [text, linesMapping] = file.inputStream().reader(Charsets.UTF_8).use {
-            it.readSourceFileWithMapping()
-        }
-        val lightTree = parseToTestParseElement(text, 0, KotlinLexer(), parser)
-
+    private fun buildFirFile(
+        lightTree: MultiplatformBasedLightTree,
+        sourceFile: KtSourceFile,
+        linesMapping: KtSourceFileLinesMapping,
+    ): FirFile {
+        return MultiplatformParsingRawFirDeclarationBuilder(
+            session,
+            scopeProvider,
+            lightTree.lightSourceTreeStructure as KotlinLightTreeStructure
+        ).convertFile(lightTree.getRoot(), sourceFile, linesMapping)
     }
 
-    private fun parseToTestParseElement(
+    private fun buildLightTree(
         charSequence: CharSequence,
-        start: Int,
         lexer: Lexer,
         parser: AbstractParser,
     ): MultiplatformBasedLightTree {
@@ -52,7 +54,7 @@ class MultiplatformParsing2Fir(
             performLexing(charSequence, lexer, cancellationProvider = null, logger = null),
             whitespaces = parser.whitespaces,
             comments = parser.comments,
-        ).withStartOffset(start)
+        ).withStartOffset(startOffset = 0)
             .withWhitespaceOrCommentBindingPolicy(parser.whitespaceOrCommentBindingPolicy)
             .build()
 
@@ -61,5 +63,4 @@ class MultiplatformParsing2Fir(
             KotlinLightTreeStructure(it)
         }
     }
-
 }

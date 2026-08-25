@@ -12,6 +12,7 @@ group = "org.jetbrains.kotlin.fir"
 
 dependencies {
     api(project(":compiler:fir:raw-fir:raw-fir.common"))
+    implementation(project(":compiler:fir:raw-fir:light-tree2fir"))
     implementation(project(":compiler:multiplatform-parsing"))
     implementation(libs.org.jetbrains.syntax.api)
 
