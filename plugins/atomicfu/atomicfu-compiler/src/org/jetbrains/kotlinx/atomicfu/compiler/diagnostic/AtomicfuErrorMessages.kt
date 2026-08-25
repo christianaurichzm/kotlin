@@ -69,7 +69,7 @@ object AtomicfuErrorMessages : BaseDiagnosticRendererFactory() {
         "Taking a reference to an atomic member or extension function is prohibited: `''{0}''`."
 
     private const val ATOMIC_FACTORIES_ARE_FOR_INITIALIZATION_ONLY_MESSAGE =
-        "Atomic factories can only be called to initialize a property or as delegates: `''{0}''`."
+        "Atomic factories can only be called to initialize an atomic property or as delegates: `''{0}''`."
 
     private const val ATOMIC_PROPERTIES_MUST_HAVE_BACKING_FIELD_MESSAGE = "Atomic properties must have a backing field.\n" +
             "Consider declaring `''{0}''` as a property with a backing field."
