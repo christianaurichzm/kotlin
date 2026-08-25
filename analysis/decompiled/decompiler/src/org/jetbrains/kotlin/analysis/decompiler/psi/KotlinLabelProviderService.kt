@@ -6,16 +6,34 @@
 package org.jetbrains.kotlin.analysis.decompiler.psi
 
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.components.serviceOrNull
+import org.jetbrains.kotlin.psi.KtNonPublicApi
 
-abstract class KotlinLabelProviderService {
-    abstract fun getLabelForBuiltInFileType(): String
-    abstract fun getLabelForKlibMetaFileType(): String
+/**
+ * Supplies human-readable, localizable descriptions for the binary Kotlin file types.
+ *
+ * The file types fall back to hard-coded English descriptions when no service is registered, so a platform only needs to implement
+ * this service if it presents the file types in a user interface.
+ */
+@KtNonPublicApi
+public abstract class KotlinLabelProviderService {
+    /**
+     * Returns the description of [KotlinBuiltInFileType].
+     */
+    public abstract fun getLabelForBuiltInFileType(): String
+
+    /**
+     * Returns the description of [org.jetbrains.kotlin.analysis.decompiler.konan.KlibMetaFileType].
+     */
+    public abstract fun getLabelForKlibMetaFileType(): String
 
     @Deprecated("The function is unused. Its implementation should be dropped")
-    open fun getLabelForKotlinJavaScriptMetaFileType(): String = ""
+    public open fun getLabelForKotlinJavaScriptMetaFileType(): String = ""
 
-    companion object {
-        fun getService(): KotlinLabelProviderService? =
-            ApplicationManager.getApplication().getService(KotlinLabelProviderService::class.java)
+    public companion object {
+        /**
+         * Returns the [KotlinLabelProviderService] registered by the current platform, or `null` if the platform provides none.
+         */
+        public fun getService(): KotlinLabelProviderService? = ApplicationManager.getApplication().serviceOrNull()
     }
 }

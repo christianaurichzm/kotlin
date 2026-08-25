@@ -8,20 +8,25 @@ import com.intellij.openapi.fileTypes.FileType
 import com.intellij.openapi.vfs.VirtualFile
 import org.jetbrains.kotlin.analysis.decompiler.psi.KotlinLabelProviderService
 import org.jetbrains.kotlin.library.components.KlibMetadataConstants.KLIB_METADATA_FILE_EXTENSION
+import org.jetbrains.kotlin.psi.KtNonPublicApi
+import javax.swing.Icon
 
-object KlibMetaFileType : FileType {
-    override fun getName() = "KNM"
+/**
+ * The file type of KLIB metadata files (`.knm`), the binary declaration format of Kotlin/Native and other KLIB-based targets.
+ */
+public object KlibMetaFileType : FileType {
+    override fun getName(): String = "KNM"
 
+    @OptIn(KtNonPublicApi::class)
     override fun getDescription(): String {
-        return KotlinLabelProviderService.getService()?.getLabelForKlibMetaFileType()
-            ?: DEFAULT_DESCRIPTION
+        return KotlinLabelProviderService.getService()?.getLabelForKlibMetaFileType() ?: DEFAULT_DESCRIPTION
     }
 
-    override fun getDefaultExtension() = KLIB_METADATA_FILE_EXTENSION
-    override fun getIcon(): Nothing? = null
-    override fun isBinary() = true
-    override fun isReadOnly() = true
-    override fun getCharset(file: VirtualFile, content: ByteArray): Nothing? = null
+    override fun getDefaultExtension(): String = KLIB_METADATA_FILE_EXTENSION
+    override fun getIcon(): Icon? = null
+    override fun isBinary(): Boolean = true
+    override fun isReadOnly(): Boolean = true
+    override fun getCharset(file: VirtualFile, content: ByteArray): String? = null
 
     private const val DEFAULT_DESCRIPTION = "Klib Metadata"
 }

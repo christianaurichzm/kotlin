@@ -13,10 +13,18 @@ import com.intellij.psi.search.DelegatingGlobalSearchScope
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.impl.VirtualFileEnumeration
 import org.jetbrains.kotlin.name.StandardClassIds
+import org.jetbrains.kotlin.psi.KtNonPublicApi
 import org.jetbrains.kotlin.serialization.deserialization.builtins.BuiltInSerializerProtocol
 import java.net.URL
 
-abstract class BuiltinsVirtualFileProviderBaseImpl : BuiltinsVirtualFileProvider() {
+/**
+ * A [BuiltinsVirtualFileProvider] that discovers built-in files as resources of its own class loader.
+ *
+ * Implementors only have to map a resource [java.net.URL] to a [VirtualFile] of the file system they operate on; locating the
+ * built-in resources and building the search scope are handled here.
+ */
+@KtNonPublicApi
+public abstract class BuiltinsVirtualFileProviderBaseImpl : BuiltinsVirtualFileProvider() {
     private val builtInUrls: Set<URL> by lazy {
         val classLoader = this::class.java.classLoader
         StandardClassIds.builtInsPackages.mapNotNullTo(mutableSetOf()) { builtInPackageFqName ->
@@ -58,6 +66,9 @@ abstract class BuiltinsVirtualFileProviderBaseImpl : BuiltinsVirtualFileProvider
         }
     }
 
+    /**
+     * Resolves the [url] of a built-in resource to a [VirtualFile], or returns `null` if it cannot be found.
+     */
     protected abstract fun findVirtualFile(url: URL): VirtualFile?
 
     override fun getBuiltinVirtualFiles(): Set<VirtualFile> = builtInUrls.mapNotNullTo(mutableSetOf()) { url ->

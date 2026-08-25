@@ -10,9 +10,11 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.util.io.URLUtil
 import org.jetbrains.kotlin.analysis.decompiler.psi.BuiltinsVirtualFileProviderBaseImpl
+import org.jetbrains.kotlin.psi.KtNonPublicApi
 import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
 import java.net.URL
 
+@OptIn(KtNonPublicApi::class)
 class BuiltinsVirtualFileProviderCliImpl : BuiltinsVirtualFileProviderBaseImpl() {
     override fun findVirtualFile(url: URL): VirtualFile? {
         val split = URLUtil.splitJarUrl(url.path)
