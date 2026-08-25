@@ -58,6 +58,10 @@ fun KotlinCommonCompilerOptions.mainCompilationOptions() {
     }
 }
 
+fun KotlinCommonCompilerOptions.addReturnValueCheckerInfo() {
+    freeCompilerArgs.add("-Xreturn-value-checker=full")
+}
+
 /**
  * Between making a language feature stable and the next bootstrap, we need to keep providing the compiler argument.
  * But this produces a warning
@@ -95,7 +99,7 @@ kotlin {
     explicitApi()
 
     compilerOptions {
-        freeCompilerArgs.add("-Xreturn-value-checker=full")
+        addReturnValueCheckerInfo()
     }
 
     metadata {
@@ -113,6 +117,7 @@ kotlin {
                             )
                         )
                         mainCompilationOptions()
+                        addReturnValueCheckerInfo()
                         suppressRedundantCliArgumentWarning()
                     }
                 }
