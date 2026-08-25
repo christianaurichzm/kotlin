@@ -215,7 +215,7 @@ class JavaLightTreeTest {
         // and the imports never reach the tree. A license header is used here; a blank first line is enough.
         val source = """
             /*
-             * Copyright header.
+             * File header.
              */
             import java.util.List;
 
@@ -241,7 +241,7 @@ class JavaLightTreeTest {
         // there the lost import list additionally hides the `module` soft keyword from the parser.
         val source = """
             /*
-             * Copyright header.
+             * File header.
              */
             import module java.base;
 
