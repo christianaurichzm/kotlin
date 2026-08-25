@@ -28,6 +28,7 @@ dependencies {
     testImplementation(project(":kotlin-scripting-compiler"))
     testImplementation(project(":kotlin-scripting-dependencies-maven"))
     testImplementation(project(":compiler:cli"))
+    testImplementation(project(":compiler:cli-jvm"))
 
     testImplementation(libs.kotlinx.coroutines.core)
     testImplementation(libs.kotlinx.coroutines.core.jvm)
@@ -35,7 +36,10 @@ dependencies {
     testImplementation(project(":analysis:decompiled:decompiler"))
     testImplementation(project(":analysis:decompiled:decompiler-impl"))
     testImplementation(intellijCore())
-    testImplementation(testFixtures(project(":analysis:decompiled:decompiler-impl")))
+    testImplementation(platform(libs.junit.bom))
+    testImplementation(libs.junit.jupiter.api)
+    testRuntimeOnly(libs.junit.jupiter.engine)
+    testRuntimeOnly(libs.junit.platform.launcher)
     testRuntimeOnly(project(":kotlin-compiler"))
     testRuntimeOnly(project(":kotlin-scripting-ide-common")) { isTransitive = false }
 
