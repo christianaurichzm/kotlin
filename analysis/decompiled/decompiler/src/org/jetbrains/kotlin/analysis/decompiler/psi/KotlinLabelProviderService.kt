@@ -30,6 +30,7 @@ public abstract class KotlinLabelProviderService {
     @Deprecated("The function is unused. Its implementation should be dropped")
     public open fun getLabelForKotlinJavaScriptMetaFileType(): String = ""
 
+    @KtNonPublicApi
     public companion object {
         /**
          * Returns the [KotlinLabelProviderService] registered by the current platform, or `null` if the platform provides none.

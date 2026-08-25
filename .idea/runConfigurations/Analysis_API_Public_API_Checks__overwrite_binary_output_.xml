@@ -28,7 +28,9 @@
           <option value=":analysis:analysis-api-platform-interface:updateKotlinAbi" />
           <option value=":analysis:analysis-api-standalone:updateKotlinAbi" />
           <option value=":analysis:low-level-api-fir:testCodebase" />
+          <option value=":analysis:decompiled:decompiler:updateKotlinAbi" />
           <option value=":analysis:decompiled:decompiler:testCodebase" />
+          <option value=":analysis:decompiled:decompiler:checkForeignClassUsage" />
           <option value=":core:names:updateKotlinAbi" />
           <option value=":core:names:checkForeignClassUsage" />
           <option value=":core:language.model:updateKotlinAbi" />
