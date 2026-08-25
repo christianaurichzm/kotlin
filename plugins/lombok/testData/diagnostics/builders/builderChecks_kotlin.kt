@@ -87,7 +87,7 @@ fun test() {
     BuilderAccessLevelProtected.<!INVISIBLE_REFERENCE!>builder<!>()
     BuilderInterface.builder() // TODO: should be unresolved, KT-87871
     BuilderAnnotationClass.builder() // TODO: should be unresolved, KT-87871
-    BuilderEnum.builder() // TODO: should be unresolved, KT-87871
+    BuilderEnum.builder() // TODO: should be unresolved
     BuilderObject.<!UNRESOLVED_REFERENCE!>builder<!>()
 
    // Local classes can't have a companion object to host `builder()`, exactly as for `@NoArgsConstructor`.
