@@ -8,6 +8,9 @@ package org.jetbrains.kotlin.test.klib.compatibility
 import org.jetbrains.kotlin.backend.common.diagnostics.LibrarySpecialCompatibilityChecker
 import org.jetbrains.kotlin.test.klib.compatibility.LibrarySpecialCompatibilityChecksTest.Companion.SORTED_TEST_COMPILER_VERSION_GROUPS
 import org.jetbrains.kotlin.test.klib.compatibility.LibrarySpecialCompatibilityChecksTest.Companion.SORTED_TEST_OLD_LIBRARY_VERSION_GROUPS
+import org.jetbrains.kotlin.tooling.core.KotlinToolingVersion
+import org.jetbrains.kotlin.tooling.core.isDev
+import org.jetbrains.kotlin.tooling.core.isSnapshot
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.fail
 import org.junit.jupiter.api.Test
@@ -41,22 +44,35 @@ interface StdlibSpecialCompatibilityChecksTest : DummyLibraryCompiler {
         }
     }
 
-    // TODO (KT-83853): Find a reliable way to detect dev compiler versions.
     @Test
     fun `check compiler DEV version is properly detected`() {
         listOf(
             "2.5.0" to false,
+            "2.5.0-1" to false,
+            "2.5.0-release-123" to false,
+            "2.5.0-M1" to false,
+            "2.5.0-Alpha2" to false,
             "2.5.0-Beta1" to false,
+            "2.5.0-RC" to false,
+            "2.5.0-RC2-release-123" to false,
             "2.5.0-dev" to true,
-            "2.5.0-dev1" to false,
+            "2.5.0-dev1" to true,
             "2.5.0-dev-123" to true,
             "2.5.0-SNAPSHOT" to true,
+            "2.5.0-public-123" to true,
+            "2.5.0-some-playground-123" to true,
         ).forEach { [rawVersion, shouldBeDevVersion] ->
             val parsedVersion = LibrarySpecialCompatibilityChecker.Version.parseVersion(rawVersion)
                 ?: fail("Compiler version cannot be parsed: $rawVersion")
 
             assertEquals(shouldBeDevVersion, parsedVersion.isDevVersion) {
-                "Compiler version $rawVersion is not detected as a DEV version"
+                "Wrong dev version detection result for compiler version $rawVersion"
+            }
+
+            // The checker mirrors the maturity detection logic of KotlinToolingVersion. Make sure they don't diverge.
+            val toolingVersion = KotlinToolingVersion(rawVersion)
+            assertEquals(toolingVersion.isDev || toolingVersion.isSnapshot, parsedVersion.isDevVersion) {
+                "Dev version detection for $rawVersion disagrees with KotlinToolingVersion maturity ${toolingVersion.maturity}"
             }
         }
     }
