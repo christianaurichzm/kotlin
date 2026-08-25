@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.FirFunctionChecker
 import org.jetbrains.kotlin.fir.declarations.FirFunction
 import org.jetbrains.kotlin.fir.declarations.FirPropertyAccessor
+import org.jetbrains.kotlin.fir.declarations.FirValueParameter
 import org.jetbrains.kotlin.fir.declarations.utils.effectiveVisibility
 import org.jetbrains.kotlin.fir.declarations.utils.isInline
 import org.jetbrains.kotlin.fir.resolve.transformers.publishedApiEffectiveVisibility
@@ -37,14 +38,18 @@ object AtomicfuFunctionChecker : FirFunctionChecker(MppCheckerKind.Common) {
                 )
             }
         }
-        declaration.valueParameters.forEach { parameter ->
-            if (parameter.returnTypeRef.coneType.classId?.isAtomicType() == true) {
-                reporter.reportOn(
-                    parameter.source,
-                    AtomicfuErrors.ATOMIC_VALUE_PARAMETERS_ARE_FORBIDDEN,
-                    parameter.source.text.toString()
-                )
-            }
+        declaration.valueParameters.forEach { checkParameter(it) }
+        declaration.contextParameters.forEach { checkParameter(it) }
+    }
+
+    context(context: CheckerContext, reporter: DiagnosticReporter)
+    private fun checkParameter(parameter: FirValueParameter) {
+        if (parameter.returnTypeRef.coneType.classId?.isAtomicType() == true) {
+            reporter.reportOn(
+                parameter.source,
+                AtomicfuErrors.ATOMIC_VALUE_PARAMETERS_ARE_FORBIDDEN,
+                parameter.source.text.toString()
+            )
         }
     }
 }

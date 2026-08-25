@@ -17,3 +17,5 @@ internal inline fun AtomicRef<String>.f2() { }'`.
 /IllegalFunctions.kt:20:33: error: Function parameters with kotlinx.atomicfu.Atomic* types are unsupported: `'a: AtomicInt'`.
 
 /IllegalFunctions.kt:22:48: error: Function parameters with kotlinx.atomicfu.Atomic* types are unsupported: `'private val a: AtomicInt'`.
+
+/IllegalFunctions.kt:24:9: error: Function parameters with kotlinx.atomicfu.Atomic* types are unsupported: `'a: AtomicRef<Any>'`.
