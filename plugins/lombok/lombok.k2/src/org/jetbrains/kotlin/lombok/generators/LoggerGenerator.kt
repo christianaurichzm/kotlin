@@ -197,7 +197,7 @@ class LoggerGenerator(session: FirSession) : FirDeclarationGenerationExtension(s
 
         // `targetClassSymbol` rather than `classSymbol`: the logger of an annotated interface goes into its
         // companion object, so it is the annotated class that decides whether anything is generated at all.
-        if (targetClassSymbol.isUnsupportedLombokTarget) return null
+        if (!targetClassSymbol.isSupportedLombokTarget) return null
 
         val logFieldOrPropertyName = Name.identifier(config.logFieldName)
 
