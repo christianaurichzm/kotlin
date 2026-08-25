@@ -430,16 +430,17 @@ internal fun recoverInheritedOuterTypeArguments(innerClassId: ClassId): List<Jav
     // of that supertype list sees an empty answer and the walk simply moves outward.
     var current: JavaClass? = containingClass
     while (current != null) {
-        val currentId = current.classId
+        val inheritingClass = current
+        val currentId = inheritingClass.classId
         if (currentId != null) {
             for (supertype in FirBackedJavaClassAdapter(currentId, session).supertypes) {
                 val coneSupertype = (supertype as? FirBackedJavaClassifierType)?.coneType ?: continue
                 val recovered = findTypeArgsForClassInHierarchy(coneSupertype, outerClassId, session, mutableSetOf())
-                if (recovered != null) return recovered.map { recoveredOuterTypeArgument(it, session) }
+                if (recovered != null) return recovered.map { recoveredOuterTypeArgument(it, inheritingClass, session) }
             }
         }
-        if (current.isStatic) break
-        current = current.outerClass
+        if (inheritingClass.isStatic) break
+        current = inheritingClass.outerClass
     }
     return null
 }
@@ -449,24 +450,26 @@ internal fun recoverInheritedOuterTypeArguments(innerClassId: ClassId): List<Jav
  *
  * A recovered argument is often a type parameter of the containing class itself
  * (`class Outer<E1, E2> extends BaseOuter<Integer, E1>` recovers `Integer, E1`). Such an argument
- * must be handed back as the model's *own* [JavaTypeParameter]: FIR matches `JavaTypeParameter`s to
- * `FirTypeParameterSymbol`s by identity through the per-class `JavaTypeParameterStack`, which does
- * not know resolution-time cone-backed wrappers, so the cone route
- * ([firBackedJavaType]) would degrade the reference to an unbounded wildcard. The name is
- * necessarily in scope — the parameter is declared by a class of the containing chain the recovery
- * walked.
+ * must be handed back as the model's *own* [JavaTypeParameter], the one declared by [inheritingClass]
+ * or by one of its outer classes.
  */
 context(c: JavaResolutionContext)
-private fun recoveredOuterTypeArgument(projection: ConeTypeProjection, session: FirSession): JavaType {
-    // Arguments read off a resolved FIR supertype are flexible (`kotlin/Int!`, `E1!`), while the
-    // Java model is nullability-agnostic and FIR re-derives flexibility when converting back — so
-    // the lower bound is what has to be handed over. Without unwrapping, neither branch below
-    // matches and everything degrades to an unbounded wildcard.
+private fun recoveredOuterTypeArgument(projection: ConeTypeProjection, inheritingClass: JavaClass, session: FirSession): JavaType {
     val type = (projection as? ConeKotlinType)?.lowerBoundIfFlexible() ?: return firBackedJavaType(projection, session)
     if (type is ConeTypeParameterType) {
-        findTypeParameter(type.lookupTag.name.asString())?.let { return JavaTypeParameterTypeOverAst(it) }
+        findTypeParameterInDeclarationChain(inheritingClass, type.lookupTag.name)?.let { return JavaTypeParameterTypeOverAst(it) }
     }
     return firBackedJavaType(type, session)
+}
+
+private fun findTypeParameterInDeclarationChain(startClass: JavaClass, name: Name): JavaTypeParameter? {
+    var current: JavaClass? = startClass
+    while (current != null) {
+        current.typeParameters.firstOrNull { it.name == name }?.let { return it }
+        if (current.isStatic) return null
+        current = current.outerClass
+    }
+    return null
 }
 
 /**
