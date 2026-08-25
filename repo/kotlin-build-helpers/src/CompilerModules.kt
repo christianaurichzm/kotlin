@@ -205,6 +205,7 @@ object CompilerModules {
 
     val analysisApiSurfaceModules = arrayOf(
         ":analysis:analysis-api",
+        ":analysis:decompiled:decompiler",
     )
 
     val analysisApiStandaloneSurfaceModules = arrayOf(
@@ -228,7 +229,6 @@ object CompilerModules {
         ":analysis:analysis-api-impl-base",
         ":analysis:analysis-api-platform-interface",
         ":analysis:analysis-internal-utils",
-        ":analysis:decompiled:decompiler",
         ":analysis:decompiled:decompiler-impl",
         ":analysis:decompiled:light-classes-for-decompiled",
         ":analysis:low-level-api-fir",
