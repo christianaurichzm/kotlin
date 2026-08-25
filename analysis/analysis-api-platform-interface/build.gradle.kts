@@ -17,7 +17,6 @@ dependencies {
     implementation(project(":analysis:analysis-api"))
     implementation(project(":analysis:analysis-internal-utils"))
     implementation(project(":analysis:decompiled:decompiler"))
-    implementation(project(":analysis:decompiled:decompiler-impl"))
     implementation(intellijCore())
     implementation(libs.opentelemetry.api)
     implementation(libs.caffeine)
