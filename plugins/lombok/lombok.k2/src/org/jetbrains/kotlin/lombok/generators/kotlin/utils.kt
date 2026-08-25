@@ -27,7 +27,7 @@ import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.toFirResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.constructClassLikeType
 import org.jetbrains.kotlin.lombok.generators.hasJavaOrigin
-import org.jetbrains.kotlin.lombok.generators.isUnsupportedLombokTarget
+import org.jetbrains.kotlin.lombok.generators.isSupportedLombokTarget
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.JvmStandardClassIds
 
@@ -104,7 +104,7 @@ fun isCompanionNeeded(
     }
 
     // Nothing is generated into these, so they must not grow a companion object to hold it either
-    if (owner.isUnsupportedLombokTarget) {
+    if (!owner.isSupportedLombokTarget) {
         return false
     }
 

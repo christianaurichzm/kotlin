@@ -91,7 +91,7 @@ class ToStringGenerator(session: FirSession) : FirDeclarationGenerationExtension
     private fun initializeToStringIfNeeded(classSymbol: FirClassSymbol<*>, context: MemberGenerationContext): FirNamedFunctionSymbol? {
         // An annotation class can hold no member at all, generating one makes the platform report
         // `ANNOTATION_CLASS_MEMBER` on it. Both kinds are already reported as `ANNOTATION_HAS_NO_EFFECT`.
-        if (classSymbol !is FirRegularClassSymbol || classSymbol.isUnsupportedLombokTarget) return null
+        if (classSymbol !is FirRegularClassSymbol || !classSymbol.isSupportedLombokTarget) return null
 
         val toStringConfig = session.lombokService.getToString(classSymbol) ?: return null
         val declaredScope = context.declaredScope

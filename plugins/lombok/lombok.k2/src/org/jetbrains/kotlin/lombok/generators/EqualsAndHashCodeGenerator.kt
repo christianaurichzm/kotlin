@@ -117,7 +117,7 @@ class EqualsAndHashCodeGenerator(session: FirSession) : FirDeclarationGeneration
     ): EqualsAndHashCodeMembers? {
         // An annotation class can hold no member at all, generating one makes the platform report
         // `ANNOTATION_CLASS_MEMBER` on it. Both kinds are already reported as `ANNOTATION_HAS_NO_EFFECT`.
-        if (classSymbol !is FirRegularClassSymbol || classSymbol.isUnsupportedLombokTarget) return null
+        if (classSymbol !is FirRegularClassSymbol || !classSymbol.isSupportedLombokTarget) return null
 
         val annotation = session.lombokService.getEqualsAndHashCode(classSymbol) ?: return null
         val declaredScope = context.declaredScope

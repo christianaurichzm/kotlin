@@ -168,16 +168,17 @@ class ConeLombokValueParameter(val name: Name, val typeRef: FirTypeRef)
 val FirBasedSymbol<*>.hasJavaOrigin get() = origin is FirDeclarationOrigin.Java
 
 /**
- * Whether Lombok generates nothing at all into [this] class, because it is a kind of class Lombok's own model has
- * no counterpart for: an interface holds no state to generate from and no constructor to generate, and an
- * annotation class can hold no member at all - the platform reports `ANNOTATION_CLASS_MEMBER` for one.
+ * Whether Lombok generates anything at all into [this] class. An interface and an annotation class are the kinds
+ * Lombok's own model has no counterpart for: an interface holds no state to generate from and no constructor to
+ * generate, and an annotation class can hold no member at all - the platform reports `ANNOTATION_CLASS_MEMBER`
+ * for one.
  *
  * Both are reported as `ANNOTATION_HAS_NO_EFFECT` already, so generating anyway makes the checker contradict the
  * generators, and the output is not merely useless: a constructor in an interface is rejected outright by the
  * backend, and a builder for an interface has no constructor to call (KT-87871).
  */
-val FirClassSymbol<*>.isUnsupportedLombokTarget: Boolean
-    get() = isInterface || isAnnotationClass
+val FirClassSymbol<*>.isSupportedLombokTarget: Boolean
+    get() = !isInterface && !isAnnotationClass
 
 /**
  * Whether [this] has an extension receiver or context parameters.

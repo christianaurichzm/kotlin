@@ -680,7 +680,7 @@ abstract class AbstractBuilderGenerator<T : AbstractBuilder>(session: FirSession
         return buildList {
             // Only the class-level `@Builder` is dropped: a `@Builder`-annotated member function of an interface
             // still builds whatever that function returns, and is a legitimate case.
-            if (allowedTargets.contains(KotlinTarget.CLASS) && !classSymbol.isUnsupportedLombokTarget) {
+            if (allowedTargets.contains(KotlinTarget.CLASS) && classSymbol.isSupportedLombokTarget) {
                 getBuilder(classSymbol)?.let { add(BuilderWithDeclaration(it, classSymbol.fir)) }
             }
 
