@@ -51,6 +51,7 @@ fun KotlinCommonCompilerOptions.mainCompilationOptions() {
     freeCompilerArgs.add("-Xcontext-parameters")
     freeCompilerArgs.add("-Xname-based-destructuring=complete")
     freeCompilerArgs.add("-Xcollection-literals")
+    addReturnValueCheckerInfo()
     if (!kotlinBuildProperties.disableWerror) allWarningsAsErrors = true
 
     if (this is KotlinJvmCompilerOptions) {
@@ -123,7 +124,6 @@ kotlin {
                             )
                         )
                         mainCompilationOptions()
-                        addReturnValueCheckerInfo()
                         suppressRedundantCliArgumentWarning()
                     }
                 }
@@ -142,6 +142,7 @@ kotlin {
                                 diagnosticNamesArg
                             )
                         )
+                        addReturnValueCheckerInfo()
                         suppressRedundantCliArgumentWarning()
                     }
                 }
