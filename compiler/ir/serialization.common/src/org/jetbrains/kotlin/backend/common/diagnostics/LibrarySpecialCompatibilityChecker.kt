@@ -9,6 +9,9 @@ import org.jetbrains.kotlin.backend.common.diagnostics.LibrarySpecialCompatibili
 import org.jetbrains.kotlin.cli.report
 import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.library.*
+import org.jetbrains.kotlin.tooling.core.KotlinToolingVersion
+import org.jetbrains.kotlin.tooling.core.isDev
+import org.jetbrains.kotlin.tooling.core.isSnapshot
 import java.io.ByteArrayInputStream
 import java.nio.file.Path
 import java.util.jar.Manifest
@@ -20,6 +23,7 @@ abstract class LibrarySpecialCompatibilityChecker {
     class Version(
         private val comparableVersion: MavenComparableVersion,
         private val languageVersion: LanguageVersion,
+        private val toolingVersion: KotlinToolingVersion,
         private val rawVersion: String
     ) : Comparable<Version> {
         override fun compareTo(other: Version) = comparableVersion.compareTo(other.comparableVersion)
@@ -27,10 +31,7 @@ abstract class LibrarySpecialCompatibilityChecker {
         override fun hashCode() = comparableVersion.hashCode()
 
         // A version is considered a "dev" version unless its classifier denotes one of the known release maturities.
-        val isDevVersion: Boolean = when (computeMaturity(rawVersion)) {
-            Maturity.SNAPSHOT, Maturity.DEV -> true
-            Maturity.MILESTONE, Maturity.ALPHA, Maturity.BETA, Maturity.RC, Maturity.STABLE -> false
-        }
+        val isDevVersion: Boolean = toolingVersion.isDev || toolingVersion.isSnapshot
 
         override fun toString() = rawVersion
         fun toComparableVersionString() = comparableVersion.toString()
@@ -51,25 +52,13 @@ abstract class LibrarySpecialCompatibilityChecker {
                 val languageVersion = LanguageVersion.fromFullVersionString(rawVersion)
                     ?: return null
 
-                return Version(comparableVersion, languageVersion, rawVersion)
-            }
-
-            // Mirrors `org.jetbrains.kotlin.tooling.core.KotlinToolingVersion.Maturity`, which cannot be used here directly.
-            private enum class Maturity {
-                SNAPSHOT, DEV, MILESTONE, ALPHA, BETA, RC, STABLE
-            }
-
-            private fun computeMaturity(rawVersion: String): Maturity {
-                val classifier = rawVersion.split("-", limit = 2).getOrNull(1)?.lowercase()
-                return when {
-                    classifier == null || classifier.matches(Regex("""(release-)?\d+""")) -> Maturity.STABLE
-                    classifier == "snapshot" -> Maturity.SNAPSHOT
-                    classifier.matches(Regex("""(rc)(\d*)?(-release)?(-?\d+)?""")) -> Maturity.RC
-                    classifier.matches(Regex("""beta(\d*)?(-release)?(-?\d+)?""")) -> Maturity.BETA
-                    classifier.matches(Regex("""alpha(\d*)?(-release)?(-?\d+)?""")) -> Maturity.ALPHA
-                    classifier.matches(Regex("""m\d+(-release)?(-\d+)?""")) -> Maturity.MILESTONE
-                    else -> Maturity.DEV
+                val toolingVersion = try {
+                    KotlinToolingVersion(rawVersion)
+                } catch (_: Exception) {
+                    return null
                 }
+
+                return Version(comparableVersion, languageVersion, toolingVersion, rawVersion)
             }
         }
     }

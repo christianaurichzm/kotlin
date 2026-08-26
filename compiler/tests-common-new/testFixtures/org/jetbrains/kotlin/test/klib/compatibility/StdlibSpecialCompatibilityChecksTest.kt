@@ -8,9 +8,6 @@ package org.jetbrains.kotlin.test.klib.compatibility
 import org.jetbrains.kotlin.backend.common.diagnostics.LibrarySpecialCompatibilityChecker
 import org.jetbrains.kotlin.test.klib.compatibility.LibrarySpecialCompatibilityChecksTest.Companion.SORTED_TEST_COMPILER_VERSION_GROUPS
 import org.jetbrains.kotlin.test.klib.compatibility.LibrarySpecialCompatibilityChecksTest.Companion.SORTED_TEST_OLD_LIBRARY_VERSION_GROUPS
-import org.jetbrains.kotlin.tooling.core.KotlinToolingVersion
-import org.jetbrains.kotlin.tooling.core.isDev
-import org.jetbrains.kotlin.tooling.core.isSnapshot
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.fail
 import org.junit.jupiter.api.Test
@@ -67,12 +64,6 @@ interface StdlibSpecialCompatibilityChecksTest : DummyLibraryCompiler {
 
             assertEquals(shouldBeDevVersion, parsedVersion.isDevVersion) {
                 "Wrong dev version detection result for compiler version $rawVersion"
-            }
-
-            // The checker mirrors the maturity detection logic of KotlinToolingVersion. Make sure they don't diverge.
-            val toolingVersion = KotlinToolingVersion(rawVersion)
-            assertEquals(toolingVersion.isDev || toolingVersion.isSnapshot, parsedVersion.isDevVersion) {
-                "Dev version detection for $rawVersion disagrees with KotlinToolingVersion maturity ${toolingVersion.maturity}"
             }
         }
     }
