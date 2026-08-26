@@ -1735,6 +1735,12 @@ public class SymbolLightClassesByPsiForSourceTestGenerated extends AbstractSymbo
       }
 
       @Test
+      @TestMetadata("enumClass.kt")
+      public void testEnumClass() {
+        run("enumClass.kt");
+      }
+
+      @Test
       @TestMetadata("extensionVariable.kt")
       public void testExtensionVariable() {
         run("extensionVariable.kt");
@@ -1852,6 +1858,18 @@ public class SymbolLightClassesByPsiForSourceTestGenerated extends AbstractSymbo
       @TestMetadata("openClass.kt")
       public void testOpenClass() {
         run("openClass.kt");
+      }
+
+      @Test
+      @TestMetadata("overriddenExposedFunctions.kt")
+      public void testOverriddenExposedFunctions() {
+        run("overriddenExposedFunctions.kt");
+      }
+
+      @Test
+      @TestMetadata("overriddenExposedVariable.kt")
+      public void testOverriddenExposedVariable() {
+        run("overriddenExposedVariable.kt");
       }
 
       @Test
