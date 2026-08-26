@@ -361,4 +361,15 @@ val actualCommonJsAndWasmArguments by compilerArgumentsLevel(CompilerArgumentsLe
         )
         restrictedToCompilerPhase = KotlinCompilerPhase.BACKEND_COMPILATION
     }
+
+    compilerArgument {
+        name = "Xenable-advanced-optimizations"
+        description = "Enable experimental advanced optimization passes (e.g. effect analysis).".asReleaseDependent()
+        valueType = BooleanType.defaultFalse
+
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_4_20
+        )
+        restrictedToCompilerPhase = KotlinCompilerPhase.BACKEND_COMPILATION
+    }
 }
