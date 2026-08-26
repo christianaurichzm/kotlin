@@ -76,7 +76,7 @@ class WasmLinkingTest : BaseCompilationTest() {
             module.link(compilationConfigAction = {
                 // X_WASM_TARGET is not available on the linking arguments, so the wasm-wasi target cannot be set on the
                 // linking operation through the public typed API; we set it via a cast to the shared underlying builder.
-                // Once KT-88684 is fixed, drop the cast and set the target through the typed linking arguments.
+                // TODO: KT-88684 drop the cast and set the target through the typed linking argument
                 (it.compilerArguments as WasmCompilerKlibArguments.Builder)[X_WASM_TARGET] = WasmTarget.WASM_WASI
             }) {
                 assertOutputFileCountWithExtension(".wasm", 1)

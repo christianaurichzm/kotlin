@@ -74,7 +74,6 @@ class WasmModule(
             } else {
                 outputDirectory
             },
-            // write the artifacts into a dedicated directory, separate from the input klib in outputDirectory
             linkOutputDirectory,
         ) {
             // both are set before the caller's action, so that a test is able to override them
@@ -106,8 +105,8 @@ class WasmModule(
                 .toList(),
             outputDirectory,
         ) {
-            compilerArguments[NOPACK] = true
             // both are set before the caller's action, so that a test is able to override them
+            compilerArguments[NOPACK] = true
             compilerArguments[IR_OUTPUT_NAME] = moduleName
             moduleCompilationConfigAction(this)
             compilationConfigAction(this)
