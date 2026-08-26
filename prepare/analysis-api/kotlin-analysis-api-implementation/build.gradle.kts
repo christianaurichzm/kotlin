@@ -42,6 +42,8 @@ dependencies {
     implementation(libs.kotlinx.serialization.core)
     implementation(libs.antlr.runtime)
 
+    implementation(project(":kotlin-tooling-core"))
+
     embedded(protobufFull())
 }
 
