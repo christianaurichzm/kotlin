@@ -164,6 +164,16 @@ class JavaClassifierTypeOverAst(
     override val isRaw: Boolean
         get() = computeIsRaw()
 
+    /**
+     * Whether the reference is qualified by a class which inherits the classifier. (see the test inheritedInnerQualifiedRawType.kt).
+     */
+    private fun isQualifiedByInheritor(javaClass: JavaClass): Boolean {
+        val declaringOuterName = javaClass.outerClass?.name?.asString() ?: return false
+        if (rawTypeNameParts[rawTypeNameParts.size - 2] == declaringOuterName) return false
+        val classId = javaClass.classId ?: return false
+        return with(resolutionContext) { recoverInheritedOuterTypeArguments(classId) } != null
+    }
+
     private fun computeIsRaw(): Boolean {
         // Raw when (JLS 4.6):
         //  (a) own type params declared but fewer args provided — e.g. `List` for `List<E>`;
@@ -184,7 +194,7 @@ class JavaClassifierTypeOverAst(
             val outerHasExplicitArgs = allRefs.size > 1 && allRefs.dropLast(1).any { pl ->
                 tree.getChildren(pl).any { tree.getType(it) == JavaSyntaxElementType.TYPE }
             }
-            if (!outerHasExplicitArgs) {
+            if (!outerHasExplicitArgs && !isQualifiedByInheritor(javaClass)) {
                 // Walk the *enclosing-instance* chain: only the outers whose type parameters are in scope for
                 // this reference can make it raw. The walk therefore stops at the first `static` (or top-level)
                 // enclosing class.
