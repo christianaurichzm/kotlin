@@ -6,8 +6,8 @@
 package org.jetbrains.kotlin.fir.builder
 
 import com.intellij.psi.PsiElement
+import com.intellij.psi.tree.IElementType
 import org.jetbrains.kotlin.*
-import org.jetbrains.kotlin.KtNodeTypes.*
 import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.ClassKind
@@ -38,7 +38,6 @@ import org.jetbrains.kotlin.fir.types.builder.buildErrorTypeRef
 import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.ConeClassLikeTypeImpl
 import org.jetbrains.kotlin.fir.types.impl.FirImplicitBuiltinTypeRef
-import org.jetbrains.kotlin.lexer.KtTokens.*
 import org.jetbrains.kotlin.name.*
 import org.jetbrains.kotlin.parsing.*
 import org.jetbrains.kotlin.psi.KtPsiUtil
@@ -615,14 +614,29 @@ abstract class AbstractRawFirBuilder<Node : Any, Type : Any>(val baseSession: Fi
 
     abstract fun Type.isPlus(): Boolean
     abstract fun Type.isMinus(): Boolean
+
     abstract fun Type.isIntegerConstant(): Boolean
     abstract fun Type.isFloatConstant(): Boolean
     abstract fun Type.isCharacterConstant(): Boolean
     abstract fun Type.isBooleanConstant(): Boolean
     abstract fun Type.isNullConstant(): Boolean
 
-    abstract fun String.hasIllegalUnderscore(type: Type): Boolean
-    abstract fun String.parseNumericLiteral(type: Type): Number?
+    abstract fun Type.isStringInterpolationPrefix(): Boolean
+    abstract fun Type.isOpenQuote(): Boolean
+    abstract fun Type.isClosingQuote(): Boolean
+    abstract fun Type.isLiteralStringTemplateEntry(): Boolean
+    abstract fun Type.isEscapeStringTemplateEntry(): Boolean
+    abstract fun Type.isShortStringTemplateEntry(): Boolean
+    abstract fun Type.isLongStringTemplateEntry(): Boolean
+
+    abstract fun Type.isArrayAccessExpression(): Boolean
+    abstract fun Type.isSafeAccessExpression(): Boolean
+    abstract fun Type.isParenthesized(): Boolean
+    abstract fun Type.isLabeledExpression(): Boolean
+    abstract fun Type.isAnnotatedExpression(): Boolean
+
+    open fun String.hasIllegalUnderscore(type: Type): Boolean = type is IElementType && hasIllegalUnderscore(this, type)
+    open fun String.parseNumericLiteral(type: Type): Number? = if (type is IElementType) parseNumericLiteral(this, type) else null
 
     fun Array<out Node?>.toInterpolatingCall(
         base: Node,
@@ -636,15 +650,16 @@ abstract class AbstractRawFirBuilder<Node : Any, Type : Any>(val baseSession: Fi
             argumentList = buildArgumentList {
                 L@ for (entry in this@toInterpolatingCall) {
                     if (entry == null) continue
-                    when (getElementType(entry)) {
-                        STRING_INTERPOLATION_PREFIX, OPEN_QUOTE, CLOSING_QUOTE -> continue@L
-                        LITERAL_STRING_TEMPLATE_ENTRY -> {
+                    val type = getElementType(entry)
+                    when {
+                        type.isStringInterpolationPrefix() || type.isOpenQuote() || type.isClosingQuote() -> continue@L
+                        type.isLiteralStringTemplateEntry() -> {
                             sb.append(entry.asText)
                             arguments += buildLiteralExpression(
                                 entry.toFirSourceElement(), ConstantValueKind.String, entry.asText, setType = false
                             )
                         }
-                        ESCAPE_STRING_TEMPLATE_ENTRY -> {
+                        type.isEscapeStringTemplateEntry() -> {
                             val entryText = entry.asText
                             val characterWithDiagnostic = escapedStringToCharacter(entryText)
                             val unescapedCharacter = characterWithDiagnostic.value
@@ -661,7 +676,7 @@ abstract class AbstractRawFirBuilder<Node : Any, Type : Any>(val baseSession: Fi
                                 characterWithDiagnostic.getDiagnostic() ?: DiagnosticKind.IllegalConstExpression
                             )
                         }
-                        SHORT_STRING_TEMPLATE_ENTRY, LONG_STRING_TEMPLATE_ENTRY -> {
+                        type.isShortStringTemplateEntry() || type.isLongStringTemplateEntry() -> {
                             hasExpressions = true
                             val expressions = entry.convertTemplateEntry("Incorrect template argument")
                             if (expressions.isNotEmpty()) {
@@ -711,7 +726,7 @@ abstract class AbstractRawFirBuilder<Node : Any, Type : Any>(val baseSession: Fi
             diagnostic = ConeSyntaxDiagnostic("Inc/dec without operand")
         }
 
-        if (unwrappedReceiver.elementType == ARRAY_ACCESS_EXPRESSION) {
+        if (unwrappedReceiver.elementType.isArrayAccessExpression()) {
             return generateIncrementOrDecrementBlockForArrayAccess(
                 wholeExpression,
                 operationReference,
@@ -743,10 +758,12 @@ abstract class AbstractRawFirBuilder<Node : Any, Type : Any>(val baseSession: Fi
         // This should be fine since the label is meaningless and unusable for a ++/-- argument or assignment LHS.
         var unwrapped = this
         while (true) {
-            unwrapped = when (unwrapped?.elementType) {
-                PARENTHESIZED -> unwrapped.getExpressionInParentheses()
-                LABELED_EXPRESSION -> unwrapped.getLabeledExpression()
-                ANNOTATED_EXPRESSION -> unwrapped.getAnnotatedExpression()
+            val type = unwrapped?.elementType
+            unwrapped = when {
+                type == null -> return unwrapped
+                type.isParenthesized() -> unwrapped.getExpressionInParentheses()
+                type.isLabeledExpression() -> unwrapped.getLabeledExpression()
+                type.isAnnotatedExpression() -> unwrapped.getAnnotatedExpression()
                 else -> return unwrapped
             }
         }
@@ -788,11 +805,6 @@ abstract class AbstractRawFirBuilder<Node : Any, Type : Any>(val baseSession: Fi
         convert: Node.() -> FirExpression,
     ): FirExpression {
         val array = receiver.arrayExpression
-        val isInc = when (callName) {
-            OperatorNameConventions.INC -> true
-            OperatorNameConventions.DEC -> false
-            else -> error("Unexpected operator: $callName")
-        }
         val sourceKind = sourceKindForIncOrDec(callName, prefix)
         val receiverSourceElement = receiver.toFirSourceElement()
         return buildBlockPossiblyUnderSafeCall(
@@ -967,7 +979,7 @@ abstract class AbstractRawFirBuilder<Node : Any, Type : Any>(val baseSession: Fi
         }
 
         val tokenType = unwrappedLhs.elementType
-        if (tokenType == ARRAY_ACCESS_EXPRESSION) {
+        if (tokenType.isArrayAccessExpression()) {
             if (operation == FirOperation.ASSIGN) {
                 context.arraySetArgument[unwrappedLhs] = rhsExpression
             }
@@ -1039,7 +1051,7 @@ abstract class AbstractRawFirBuilder<Node : Any, Type : Any>(val baseSession: Fi
         }
         require(operation == FirOperation.ASSIGN)
 
-        if (this?.elementType == SAFE_ACCESS_EXPRESSION) {
+        if (this?.elementType?.isSafeAccessExpression() == true) {
             val safeCallNonAssignment = convert() as? FirSafeCallExpression
             if (safeCallNonAssignment != null) {
                 return putAssignmentToSafeCall(safeCallNonAssignment, baseSource, rhsExpression, annotations)

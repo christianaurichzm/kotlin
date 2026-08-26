@@ -17,7 +17,6 @@ dependencies {
     api(project(":compiler:fir:raw-fir:raw-fir.common"))
     implementation(project(":compiler:psi:psi-api"))
     implementation(project(":compiler:psi:psi-impl"))
-    implementation(project(":compiler:psi:psi-parser"))
     implementation(project(":compiler:psi:psi-frontend-utils"))
 
     compileOnly(intellijCore())

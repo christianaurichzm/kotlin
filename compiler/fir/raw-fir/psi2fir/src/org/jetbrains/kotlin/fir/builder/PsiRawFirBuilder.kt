@@ -45,8 +45,6 @@ import org.jetbrains.kotlin.fir.types.builder.*
 import org.jetbrains.kotlin.fir.types.impl.*
 import org.jetbrains.kotlin.lexer.KtTokens.*
 import org.jetbrains.kotlin.name.*
-import org.jetbrains.kotlin.parsing.hasIllegalUnderscore
-import org.jetbrains.kotlin.parsing.parseNumericLiteral
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.*
 import org.jetbrains.kotlin.types.Variance
@@ -112,13 +110,26 @@ open class PsiRawFirBuilder(
 
     override fun IElementType.isPlus(): Boolean = this == PLUS
     override fun IElementType.isMinus(): Boolean = this == MINUS
+
     override fun IElementType.isIntegerConstant(): Boolean = this == INTEGER_LITERAL
     override fun IElementType.isFloatConstant(): Boolean = this == FLOAT_LITERAL
     override fun IElementType.isBooleanConstant(): Boolean = this == BOOLEAN_CONSTANT
     override fun IElementType.isCharacterConstant(): Boolean = this == CHARACTER_LITERAL
     override fun IElementType.isNullConstant(): Boolean = this == NULL
-    override fun String.hasIllegalUnderscore(type: IElementType): Boolean = hasIllegalUndescore(this, type)
-    override fun String.parseNumericLiteral(type: IElementType): Number? = parseNumericLiteral(this, type)
+
+    override fun IElementType.isStringInterpolationPrefix(): Boolean = this == KtNodeTypes.STRING_INTERPOLATION_PREFIX
+    override fun IElementType.isOpenQuote(): Boolean = this == OPEN_QUOTE
+    override fun IElementType.isClosingQuote(): Boolean = this == CLOSING_QUOTE
+    override fun IElementType.isLiteralStringTemplateEntry(): Boolean = this == KtNodeTypes.LITERAL_STRING_TEMPLATE_ENTRY
+    override fun IElementType.isEscapeStringTemplateEntry(): Boolean = this == KtNodeTypes.ESCAPE_STRING_TEMPLATE_ENTRY
+    override fun IElementType.isShortStringTemplateEntry(): Boolean = this == KtNodeTypes.SHORT_STRING_TEMPLATE_ENTRY
+    override fun IElementType.isLongStringTemplateEntry(): Boolean = this == KtNodeTypes.LONG_STRING_TEMPLATE_ENTRY
+
+    override fun IElementType.isArrayAccessExpression(): Boolean = this == KtNodeTypes.ARRAY_ACCESS_EXPRESSION
+    override fun IElementType.isSafeAccessExpression(): Boolean = this == KtNodeTypes.SAFE_ACCESS_EXPRESSION
+    override fun IElementType.isParenthesized(): Boolean = this == KtNodeTypes.PARENTHESIZED
+    override fun IElementType.isLabeledExpression(): Boolean = this == KtNodeTypes.LABELED_EXPRESSION
+    override fun IElementType.isAnnotatedExpression(): Boolean = this == KtNodeTypes.ANNOTATED_EXPRESSION
 
     override val PsiElement.asText: String
         get() = text

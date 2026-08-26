@@ -13,6 +13,8 @@ import com.intellij.psi.tree.TokenSet
 import com.intellij.util.diff.FlyweightCapableTreeStructure
 import org.jetbrains.kotlin.*
 import org.jetbrains.kotlin.ElementTypeUtils.isExpression
+import org.jetbrains.kotlin.KtNodeTypes.BOOLEAN_CONSTANT
+import org.jetbrains.kotlin.KtNodeTypes.NULL
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.builder.Context
 import org.jetbrains.kotlin.lexer.KtTokens.*
@@ -40,8 +42,27 @@ abstract class AbstractLightTreeRawFirBuilder(
         get() = this.tokenType
 
     override fun IElementType.isPlus(): Boolean = this == PLUS
-
     override fun IElementType.isMinus(): Boolean = this == MINUS
+
+    override fun IElementType.isIntegerConstant(): Boolean = this == INTEGER_LITERAL
+    override fun IElementType.isFloatConstant(): Boolean = this == FLOAT_LITERAL
+    override fun IElementType.isBooleanConstant(): Boolean = this == BOOLEAN_CONSTANT
+    override fun IElementType.isCharacterConstant(): Boolean = this == CHARACTER_LITERAL
+    override fun IElementType.isNullConstant(): Boolean = this == NULL
+
+    override fun IElementType.isStringInterpolationPrefix(): Boolean = this == KtNodeTypes.STRING_INTERPOLATION_PREFIX
+    override fun IElementType.isOpenQuote(): Boolean = this == OPEN_QUOTE
+    override fun IElementType.isClosingQuote(): Boolean = this == CLOSING_QUOTE
+    override fun IElementType.isLiteralStringTemplateEntry(): Boolean = this == KtNodeTypes.LITERAL_STRING_TEMPLATE_ENTRY
+    override fun IElementType.isEscapeStringTemplateEntry(): Boolean = this == KtNodeTypes.ESCAPE_STRING_TEMPLATE_ENTRY
+    override fun IElementType.isShortStringTemplateEntry(): Boolean = this == KtNodeTypes.SHORT_STRING_TEMPLATE_ENTRY
+    override fun IElementType.isLongStringTemplateEntry(): Boolean = this == KtNodeTypes.LONG_STRING_TEMPLATE_ENTRY
+
+    override fun IElementType.isArrayAccessExpression(): Boolean = this == KtNodeTypes.ARRAY_ACCESS_EXPRESSION
+    override fun IElementType.isSafeAccessExpression(): Boolean = this == KtNodeTypes.SAFE_ACCESS_EXPRESSION
+    override fun IElementType.isParenthesized(): Boolean = this == KtNodeTypes.PARENTHESIZED
+    override fun IElementType.isLabeledExpression(): Boolean = this == KtNodeTypes.LABELED_EXPRESSION
+    override fun IElementType.isAnnotatedExpression(): Boolean = this == KtNodeTypes.ANNOTATED_EXPRESSION
 
     override val LighterASTNode.asText: String
         get() = this.toString()
