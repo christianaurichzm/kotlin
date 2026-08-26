@@ -1270,7 +1270,7 @@ class CallAndReferenceGenerator(
 
         val [firSymbol, irSymbol] = builtins.getCinteropConvertFunctionOver(expression.resolvedType) ?: return this
 
-        return IrCallImpl(startOffset, endOffset, firSymbol.resolvedReturnType.toIrType(), irSymbol)
+        return IrCallImpl(startOffset, endOffset, expectedType.toIrType(), irSymbol)
             .apply { arguments[0] = this@applyBuiltinToNumericClassCoercionIfNeeded }
             .applyTypeArguments(
                 typeArguments = listOf(expectedType),
@@ -1290,9 +1290,9 @@ class CallAndReferenceGenerator(
     ): IrExpression {
         if (expression.resolvedType.toSymbol(session)?.supportsNumericClassConversionTo(expectedType, session) != true) return this
 
-        val [firSymbol, irFunction] = builtins.getMemberConvertionFunction(expression.resolvedType, expectedType) ?: return this
+        val [_, irFunction] = builtins.getMemberConvertionFunction(expression.resolvedType, expectedType) ?: return this
 
-        return IrCallImpl(startOffset, endOffset, firSymbol.fir.returnTypeRef.toIrType(), irFunction)
+        return IrCallImpl(startOffset, endOffset, expectedType.toIrType(), irFunction)
             .apply { arguments[0] = this@applyNumericClassToBuiltinCoercionIfNeeded }
     }
 
