@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.fir.builder
 
+import com.intellij.lang.LighterASTNode
 import com.intellij.platform.syntax.SyntaxElementType
 import com.intellij.platform.syntax.SyntaxElementTypeSet
 import com.intellij.platform.syntax.element.SyntaxTokenTypes.BAD_CHARACTER
@@ -13,6 +14,7 @@ import com.intellij.platform.syntax.syntaxElementTypeSetOf
 import com.intellij.psi.tree.IElementType
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.lightTree.converter.AbstractTreeRawFirBuilder
+import org.jetbrains.kotlin.kmp.lexer.KtTokens
 import org.jetbrains.kotlin.kmp.lexer.KtTokens.COMMENTS
 import org.jetbrains.kotlin.kmp.lexer.KtTokens.DOT
 import org.jetbrains.kotlin.kmp.lexer.KtTokens.SAFE_ACCESS
@@ -26,7 +28,7 @@ abstract class AbstractMultiplatformParsingRawFirBuilder(
     baseSession: FirSession,
     val treeStructure: KotlinLightTreeStructure,
     context: Context<LightNode> = Context(),
-) : AbstractTreeRawFirBuilder<LightNode>(baseSession, context) {
+) : AbstractTreeRawFirBuilder<LightNode, SyntaxElementType>(baseSession, context) {
     companion object {
         protected val ignoredTokens: SyntaxElementTypeSet = COMMENTS + syntaxElementTypeSetOf(
             WHITE_SPACE, SEMICOLON, ERROR_ELEMENT, BAD_CHARACTER,
@@ -36,8 +38,12 @@ abstract class AbstractMultiplatformParsingRawFirBuilder(
     protected val tree: MultiplatformBasedLightTree
         get() = treeStructure.tree
 
-    override val LightNode.elementType: IElementType
-        get() = TODO("Not yet implemented")
+    override val LightNode.elementType: SyntaxElementType
+        get() = tree.getType(this)
+
+    override fun SyntaxElementType.isPlus(): Boolean = this == KtTokens.PLUS
+
+    override fun SyntaxElementType.isMinus(): Boolean = this == KtTokens.MINUS
 
     val LightNode.tokenType: SyntaxElementType
         get() = tree.getType(this)
@@ -57,6 +63,14 @@ abstract class AbstractMultiplatformParsingRawFirBuilder(
 
         return null
     }
+
+    override fun LightNode.getChildNodeByType(type: SyntaxElementType): LightNode? {
+        return tree.getChildren(this).firstOrNull { it.tokenType == type }
+    }
+
+    override fun LightNode.getModifierList(): LightNode? = getChildNodeByType(KtNodeTypes.MODIFIER_LIST)
+
+    override fun LightNode.getVarargKeyword(): LightNode? = getChildNodeByType(KtTokens.VARARG_MODIFIER)
 
     override val LightNode?.receiverExpression: LightNode?
         get() {
