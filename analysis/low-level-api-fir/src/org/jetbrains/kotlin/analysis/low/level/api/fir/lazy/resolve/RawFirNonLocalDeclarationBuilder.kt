@@ -147,7 +147,7 @@ internal class RawFirNonLocalDeclarationBuilder private constructor(
     private inner class VisitorWithReplacement(private val containingClass: FirRegularClass?) : Visitor() {
         fun convertDestructuringDeclaration(element: KtDestructuringDeclaration, containingDeclaration: FirDeclaration?): FirVariable {
             return if (containingDeclaration is FirScript) {
-                withContainerSymbol(containingDeclaration.symbol) {
+                context.withContainerSymbol(containingDeclaration.symbol) {
                     // Annotations from script destructuring declarations are linked to the script itself
                     buildScriptDestructuringDeclaration(element)
                 }
@@ -352,7 +352,7 @@ internal class RawFirNonLocalDeclarationBuilder private constructor(
             )
         }
 
-        withChildClassName(parent.name, isExpect = parent.isExpect) {
+        context.withChildClassName(parent.name, isExpect = parent.isExpect) {
             withCapturedTypeParameters(
                 status = parent.isInner,
                 declarationSource = null,

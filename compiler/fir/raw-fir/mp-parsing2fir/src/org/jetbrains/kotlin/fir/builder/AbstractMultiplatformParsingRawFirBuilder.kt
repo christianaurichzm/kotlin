@@ -123,11 +123,7 @@ abstract class AbstractMultiplatformParsingRawFirBuilder(
     }
 
     override fun LightNode.getFirstChildExpression(): LightNode? {
-        forEachChildren {
-            if (it.isExpression()) return it
-        }
-
-        return null
+        return tree.getChildren(this).firstOrNull { it.isExpression() }
     }
 
     override fun LightNode.getLastChildExpression(): LightNode? {
@@ -145,11 +141,23 @@ abstract class AbstractMultiplatformParsingRawFirBuilder(
 
     }
 
-    protected inline fun LightNode.forEachChildren(f: (LightNode) -> Unit) {
+    override fun LightNode.forEachChildren(f: (LightNode) -> Unit) {
         val kids = tree.getChildren(this)
         for (kid in kids) {
             if (ignoredTokens.contains(kid.tokenType)) continue
             f(kid)
         }
+    }
+
+    override fun <T> LightNode.forEachChildrenReturnList(f: (LightNode, MutableList<T>) -> Unit): MutableList<T> {
+        val kids = tree.getChildren(this)
+
+        val container = mutableListOf<T>()
+        for (kid in kids) {
+            if (ignoredTokens.contains(kid.tokenType)) continue
+            f(kid, container)
+        }
+
+        return container
     }
 }

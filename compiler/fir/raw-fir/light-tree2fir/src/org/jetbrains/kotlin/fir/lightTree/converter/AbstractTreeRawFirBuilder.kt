@@ -5,9 +5,14 @@
 
 package org.jetbrains.kotlin.fir.lightTree.converter
 
+import org.jetbrains.kotlin.KtSourceElement
+import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.builder.AbstractRawFirBuilder
 import org.jetbrains.kotlin.fir.builder.Context
+import org.jetbrains.kotlin.fir.declarations.FirReplSnippet
+import org.jetbrains.kotlin.fir.declarations.builder.FirReplSnippetBuilder
+import org.jetbrains.kotlin.fir.expressions.builder.FirBlockBuilder
 import org.jetbrains.kotlin.fir.types.FirImplicitTypeRef
 import org.jetbrains.kotlin.fir.types.impl.FirImplicitTypeRefImplWithoutSource
 import org.jetbrains.kotlin.name.Name
@@ -16,8 +21,6 @@ abstract class AbstractTreeRawFirBuilder<Node : Any, Type : Any>(
     baseSession: FirSession,
     context: Context<Node>,
 ) : AbstractRawFirBuilder<Node, Type>(baseSession, context) {
-    protected val implicitType: FirImplicitTypeRef = FirImplicitTypeRefImplWithoutSource
-
     override fun Node.getReferencedNameAsName(): Name {
         return asText.nameAsSafeName()
     }
@@ -52,5 +55,16 @@ abstract class AbstractTreeRawFirBuilder<Node : Any, Type : Any>(
         } else {
             return quoted
         }
+    }
+
+    override fun convertReplSnippet(
+        script: Node,
+        scriptSource: KtSourceElement,
+        fileName: String,
+        snippetSetup: FirReplSnippetBuilder.() -> Unit,
+        functionBodySetup: FirBlockBuilder.() -> Unit,
+        statementsSetup: MutableList<FirElement>.() -> Unit,
+    ): FirReplSnippet {
+        TODO("KT-77583")
     }
 }

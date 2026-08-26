@@ -83,11 +83,7 @@ abstract class AbstractLightTreeRawFirBuilder(
     fun LighterASTNode.getChildExpression(): LighterASTNode? = getFirstChildExpression()
 
     override fun LighterASTNode.getFirstChildExpression(): LighterASTNode? {
-        forEachChildren {
-            if (it.isExpression()) return it
-        }
-
-        return null
+        return getChildrenAsArray().firstOrNull { it?.isExpression() == true }
     }
 
     protected fun LighterASTNode.getFirstChildExpressionUnwrapped(): LighterASTNode? {
@@ -169,7 +165,7 @@ abstract class AbstractLightTreeRawFirBuilder(
         return getChildrenAsArray().firstOrNull()
     }
 
-    protected inline fun LighterASTNode.forEachChildren(f: (LighterASTNode) -> Unit) {
+    override fun LighterASTNode.forEachChildren(f: (LighterASTNode) -> Unit) {
         val kidsArray = this.getChildrenAsArray()
         for (kid in kidsArray) {
             if (kid == null) break
@@ -178,7 +174,7 @@ abstract class AbstractLightTreeRawFirBuilder(
         }
     }
 
-    protected inline fun <T> LighterASTNode.forEachChildrenReturnList(f: (LighterASTNode, MutableList<T>) -> Unit): MutableList<T> {
+    override fun <T> LighterASTNode.forEachChildrenReturnList(f: (LighterASTNode, MutableList<T>) -> Unit): MutableList<T> {
         val kidsArray = this.getChildrenAsArray()
 
         val container = mutableListOf<T>()

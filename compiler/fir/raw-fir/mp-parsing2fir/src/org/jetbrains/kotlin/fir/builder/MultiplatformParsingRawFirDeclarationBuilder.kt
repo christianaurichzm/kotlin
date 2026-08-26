@@ -37,15 +37,4 @@ class MultiplatformParsingRawFirDeclarationBuilder(
     ): FirScript {
 
     }
-
-    override fun convertReplSnippet(
-        script: LightNode,
-        scriptSource: KtSourceElement,
-        fileName: String,
-        snippetSetup: FirReplSnippetBuilder.() -> Unit,
-        functionBodySetup: FirBlockBuilder.() -> Unit,
-        statementsSetup: MutableList<FirElement>.() -> Unit
-    ): FirReplSnippet {
-
-    }
 }
