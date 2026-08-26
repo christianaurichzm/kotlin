@@ -12,6 +12,8 @@ import com.intellij.psi.tree.IElementType
 import com.intellij.psi.util.childrenOfType
 import com.intellij.util.AstLoadingFilter
 import org.jetbrains.kotlin.*
+import org.jetbrains.kotlin.KtNodeTypes.BOOLEAN_CONSTANT
+import org.jetbrains.kotlin.KtNodeTypes.NULL
 import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.builtins.StandardNames.BACKING_FIELD
 import org.jetbrains.kotlin.descriptors.*
@@ -43,6 +45,8 @@ import org.jetbrains.kotlin.fir.types.builder.*
 import org.jetbrains.kotlin.fir.types.impl.*
 import org.jetbrains.kotlin.lexer.KtTokens.*
 import org.jetbrains.kotlin.name.*
+import org.jetbrains.kotlin.parsing.hasIllegalUnderscore
+import org.jetbrains.kotlin.parsing.parseNumericLiteral
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.*
 import org.jetbrains.kotlin.types.Variance
@@ -59,7 +63,7 @@ open class PsiRawFirBuilder(
     session: FirSession,
     val baseScopeProvider: FirScopeProvider,
     bodyBuildingMode: BodyBuildingMode = BodyBuildingMode.NORMAL,
-) : AbstractRawFirBuilder<PsiElement>(session) {
+) : AbstractRawFirBuilder<PsiElement, IElementType>(session) {
     protected open fun bindFunctionTarget(target: FirFunctionTarget, function: FirFunction) {
         target.bind(function)
     }
@@ -105,6 +109,16 @@ open class PsiRawFirBuilder(
             val stubBasedElement = this as? StubBasedPsiElement<*>
             return stubBasedElement?.iElementType ?: node.elementType
         }
+
+    override fun IElementType.isPlus(): Boolean = this == PLUS
+    override fun IElementType.isMinus(): Boolean = this == MINUS
+    override fun IElementType.isIntegerConstant(): Boolean = this == INTEGER_LITERAL
+    override fun IElementType.isFloatConstant(): Boolean = this == FLOAT_LITERAL
+    override fun IElementType.isBooleanConstant(): Boolean = this == BOOLEAN_CONSTANT
+    override fun IElementType.isCharacterConstant(): Boolean = this == CHARACTER_LITERAL
+    override fun IElementType.isNullConstant(): Boolean = this == NULL
+    override fun String.hasIllegalUnderscore(type: IElementType): Boolean = hasIllegalUndescore(this, type)
+    override fun String.parseNumericLiteral(type: IElementType): Number? = parseNumericLiteral(this, type)
 
     override val PsiElement.asText: String
         get() = text

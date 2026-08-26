@@ -16,12 +16,13 @@ import org.jetbrains.kotlin.ElementTypeUtils.isExpression
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.builder.Context
 import org.jetbrains.kotlin.lexer.KtTokens.*
+import org.jetbrains.kotlin.lexer.KtTokens.VARARG_KEYWORD
 
 abstract class AbstractLightTreeRawFirBuilder(
     baseSession: FirSession,
     val tree: FlyweightCapableTreeStructure<LighterASTNode>,
     context: Context<LighterASTNode> = Context()
-) : AbstractTreeRawFirBuilder<LighterASTNode>(baseSession, context) {
+) : AbstractTreeRawFirBuilder<LighterASTNode, IElementType>(baseSession, context) {
     companion object {
         protected val ignoredTokens: TokenSet = TokenSet.orSet(
             COMMENTS,
@@ -37,6 +38,10 @@ abstract class AbstractLightTreeRawFirBuilder(
 
     override val LighterASTNode.elementType: IElementType
         get() = this.tokenType
+
+    override fun IElementType.isPlus(): Boolean = this == PLUS
+
+    override fun IElementType.isMinus(): Boolean = this == MINUS
 
     override val LighterASTNode.asText: String
         get() = this.toString()
@@ -115,8 +120,9 @@ abstract class AbstractLightTreeRawFirBuilder(
     override val LighterASTNode?.indexExpressions: List<LighterASTNode>?
         get() = this?.getLastChildExpression()?.getChildrenAsArray()?.filterNotNull()?.filter { it.isExpression() }
 
-    override val LighterASTNode.isVararg: Boolean
-        get() = getChildNodeByType(KtNodeTypes.MODIFIER_LIST)?.getChildNodeByType(VARARG_KEYWORD) != null
+    override fun LighterASTNode.getModifierList(): LighterASTNode? = getChildNodeByType(KtNodeTypes.MODIFIER_LIST)
+
+    override fun LighterASTNode.getVarargKeyword(): LighterASTNode? = getChildNodeByType(VARARG_KEYWORD)
 
     fun LighterASTNode.getParent(): LighterASTNode? {
         return tree.getParent(this)

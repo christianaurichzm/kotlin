@@ -12,10 +12,10 @@ import org.jetbrains.kotlin.fir.types.FirImplicitTypeRef
 import org.jetbrains.kotlin.fir.types.impl.FirImplicitTypeRefImplWithoutSource
 import org.jetbrains.kotlin.name.Name
 
-abstract class AbstractTreeRawFirBuilder<Node : Any>(
+abstract class AbstractTreeRawFirBuilder<Node : Any, Type : Any>(
     baseSession: FirSession,
     context: Context<Node>,
-) : AbstractRawFirBuilder<Node>(baseSession, context) {
+) : AbstractRawFirBuilder<Node, Type>(baseSession, context) {
     protected val implicitType: FirImplicitTypeRef = FirImplicitTypeRefImplWithoutSource
 
     override fun Node.getReferencedNameAsName(): Name {
@@ -25,6 +25,13 @@ abstract class AbstractTreeRawFirBuilder<Node : Any>(
     protected abstract fun Node.getFirstChildExpression(): Node?
 
     protected abstract fun Node.getLastChildExpression(): Node?
+
+    protected abstract fun Node.getModifierList(): Node?
+
+    protected abstract fun Node.getVarargKeyword(): Node?
+
+    override val Node.isVararg: Boolean
+        get() = getModifierList()?.getVarargKeyword() != null
 
     override fun Node.getExpressionInParentheses(): Node? = getFirstChildExpression()
 
