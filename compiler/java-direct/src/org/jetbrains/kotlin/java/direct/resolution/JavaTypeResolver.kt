@@ -14,9 +14,12 @@ import org.jetbrains.kotlin.fir.diagnostics.ConeSimpleDiagnostic
 import org.jetbrains.kotlin.fir.diagnostics.DiagnosticKind
 import org.jetbrains.kotlin.fir.java.declarations.FirJavaClass
 import org.jetbrains.kotlin.fir.resolve.substitution.substitutorByMap
+import org.jetbrains.kotlin.fir.symbols.ConeTypeParameterLookupTagImpl
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
+import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeAliasSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
 import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.java.direct.model.FirBackedJavaClassifierType
@@ -453,19 +456,21 @@ internal fun recoverInheritedOuterTypeArguments(innerClassId: ClassId): List<Jav
  * must be handed back as the model's *own* [JavaTypeParameter], the one declared by [inheritingClass]
  * or by one of its outer classes.
  */
-context(c: JavaResolutionContext)
 private fun recoveredOuterTypeArgument(projection: ConeTypeProjection, inheritingClass: JavaClass, session: FirSession): JavaType {
     val type = (projection as? ConeKotlinType)?.lowerBoundIfFlexible() ?: return firBackedJavaType(projection, session)
-    if (type is ConeTypeParameterType) {
-        findTypeParameterInDeclarationChain(inheritingClass, type.lookupTag.name)?.let { return JavaTypeParameterTypeOverAst(it) }
+    val lookupTag = (type as? ConeTypeParameterType)?.lookupTag
+    if (lookupTag is ConeTypeParameterLookupTagImpl) {
+        javaTypeParameterInDeclarationChain(inheritingClass, lookupTag.typeParameterSymbol)
+            ?.let { return JavaTypeParameterTypeOverAst(it) }
     }
     return firBackedJavaType(type, session)
 }
 
-private fun findTypeParameterInDeclarationChain(startClass: JavaClass, name: Name): JavaTypeParameter? {
+private fun javaTypeParameterInDeclarationChain(startClass: JavaClass, symbol: FirTypeParameterSymbol): JavaTypeParameter? {
+    val ownerClassId = (symbol.containingDeclarationSymbol as? FirClassSymbol<*>)?.classId ?: return null
     var current: JavaClass? = startClass
     while (current != null) {
-        current.typeParameters.firstOrNull { it.name == name }?.let { return it }
+        if (current.classId == ownerClassId) return current.typeParameters.firstOrNull { it.name == symbol.name }
         if (current.isStatic) return null
         current = current.outerClass
     }
