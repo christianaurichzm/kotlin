@@ -14,7 +14,9 @@ import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.components.asPsiType
 import org.jetbrains.kotlin.analysis.api.javaInterop.javaMethodName
 import org.jetbrains.kotlin.analysis.api.session.useSiteSession
+import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedFunctionSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.containingDeclaration
 import org.jetbrains.kotlin.analysis.api.types.*
 import org.jetbrains.kotlin.asJava.builder.LightMemberOrigin
 import org.jetbrains.kotlin.asJava.classes.lazyPub
@@ -260,7 +262,7 @@ internal open class SymbolLightSimpleMethod protected constructor(
                     !functionSymbol.isOverride
 
             val isSuspend = functionSymbol.isSuspend
-            val isOverridable = functionSymbol.isOverridable()
+            val isOverridable = functionSymbol.isOverridable(functionSymbol.containingDeclaration as? KaClassSymbol)
             val isEffectivelyPrivate = isEffectivelyPrivate(functionSymbol)
             createMethodsJvmOverloadsAware(
                 declaration = functionSymbol,
