@@ -22,10 +22,10 @@ import org.jetbrains.kotlin.ir.backend.js.ic.JsExecutableProducer
 import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.CompilationOutputs
 import org.jetbrains.kotlin.js.config.*
 import org.jetbrains.kotlin.js.engine.ScriptExecutionException
+import org.jetbrains.kotlin.js.test.converters.AnalysisApiBasedDtsGeneratorFacade
 import org.jetbrains.kotlin.js.test.runners.AbstractJsCompilerInvocationTest
 import org.jetbrains.kotlin.js.test.runners.JsCompilerInvocationTestConfiguration
 import org.jetbrains.kotlin.js.testOld.V8JsTestChecker
-import org.jetbrains.kotlin.js.tsexport.TypeScriptExportConfig
 import org.jetbrains.kotlin.js.tsexport.TypeScriptModuleConfig
 import org.jetbrains.kotlin.js.tsexport.createTypeScriptExportInputModule
 import org.jetbrains.kotlin.js.tsexport.runTypeScriptExport
@@ -200,19 +200,10 @@ abstract class JsAbstractInvalidationTest(
                 verifyJsCode(projStep.id, mainModuleName, writtenFiles)
 
                 if (projectInfo.checkTypeScriptDefinitions) {
-                    // First test the IR-based export
-                    verifyDTS(projStep.id, testInfo, jsDir)
-
-                    // Then the Analysis API-based export
-                    val tsExportConfig = TypeScriptExportConfig(
+                    val tsExportConfig = AnalysisApiBasedDtsGeneratorFacade.createExportConfig(
                         targetPlatform = JsPlatforms.defaultJsPlatform,
-                        artifactConfiguration = artifactConfiguration.copy(outputDirectory = jsDir.resolve("ts-aa")),
-                        compileLongAsBigInt = configuration.compileLongAsBigint,
-                        implementableInterfaces = configuration.languageVersionSettings.supportsFeature(LanguageFeature.JsExportInterfacesInImplementableWay),
-                        exportableSuspendLambdas = configuration.languageVersionSettings.supportsFeature(LanguageFeature.JsExportingSuspendLambdas),
-                        dataClassCopyRespectsConstructorVisibility = configuration.languageVersionSettings.supportsFeature(LanguageFeature.DataClassCopyRespectsConstructorVisibility),
-                        exportUntypedAsUnknown = configuration.exportUntypedAsUnknown,
-                        additionalExportedDeclarationNames = configuration.additionalExportedDeclarationNames,
+                        artifactConfiguration = artifactConfiguration,
+                        configuration = configuration,
                     )
 
                     val tsExportModules: List<KlibInputModule<TypeScriptModuleConfig>> = buildList {
@@ -221,6 +212,10 @@ abstract class JsAbstractInvalidationTest(
 
                     runTypeScriptExport(tsExportModules, tsExportConfig)
 
+                    // Verify TypeScript generated from IR (legacy)
+                    verifyDTS(projStep.id, testInfo, jsDir)
+
+                    // Verify TypeScript generated from metadata
                     verifyDTS(projStep.id, testInfo, tsExportConfig.artifactConfiguration.outputDirectory, expectedDtsSuffix = ".aa")
                 }
             }
