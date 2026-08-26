@@ -167,3 +167,21 @@ fun testAccessLevels() {
     <!INVISIBLE_REFERENCE!>NoArgsConstructorAccessLevelProtected<!>()
     NoArgsConstructorAccessLevelProtectedStatic.<!INVISIBLE_REFERENCE!>protectedCreate<!>()
 }
+
+class OuterOfInner {
+    // A static factory has no outer instance to construct with - Lombok's own output for the Java equivalent is
+    // rejected by `javac` - so nothing is generated for an inner class: neither the factory, nor the companion
+    // object it would go into (illegal in an inner class anyway), nor the no-args constructor it would call.
+    <!STATIC_CONSTRUCTOR_ON_INNER_CLASS!>@NoArgsConstructor(staticName = "make", force = true)<!>
+    inner class InnerWithStaticName(val x: Int)
+
+    // Without `staticName` the constructor of an inner class is generated as usual (KT-88707).
+    @NoArgsConstructor(force = true)
+    inner class InnerWithoutStaticName(val x: Int)
+}
+
+fun testInner(outer: OuterOfInner) {
+    OuterOfInner.InnerWithStaticName.<!UNRESOLVED_REFERENCE!>make<!>() // Nothing is generated
+    outer.InnerWithStaticName(42) // The declared constructor is untouched
+    outer.InnerWithoutStaticName()
+}

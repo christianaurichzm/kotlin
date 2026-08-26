@@ -83,7 +83,9 @@ abstract class AbstractConstructorGeneratorPart<T : ConeLombokAnnotations.Constr
         if (constructorInfo.accessLevel.toVisibility(classSymbol) == null) return false
         val staticName = constructorInfo.staticName?.let { Name.identifier(it) } ?: return false
 
-        return !staticFactoryNameIsTaken(classSymbol, staticName, getFieldsForParameters(classSymbol).size)
+        // Never for an inner class: a static factory has no outer instance to construct with (KT-88707).
+        return !classSymbol.isInner &&
+                !staticFactoryNameIsTaken(classSymbol, staticName, getFieldsForParameters(classSymbol).size)
     }
 
     /**
@@ -181,6 +183,13 @@ abstract class AbstractConstructorGeneratorPart<T : ConeLombokAnnotations.Constr
         val outerClassSymbol = runIf(targetClassSymbol.isInner) {
             targetClassSymbol.getContainingClassSymbol() as? FirClassSymbol<*> ?: return
         }
+
+        // A static factory cannot exist on an inner class: the `static of()` Lombok generates has no enclosing
+        // instance to pass to `new Inner(...)`, and `javac` rejects the annotated Java class outright with
+        // "non-static variable this cannot be referenced from a static context". Nothing is generated, the same
+        // as when the factory's name is taken; for a Kotlin class `FirLombokConstructorsChecker` reports
+        // `STATIC_CONSTRUCTOR_ON_INNER_CLASS`.
+        if (staticName != null && outerClassSymbol != null) return
 
         val substitutor: JavaTypeSubstitutor
         val constructorSymbol: FirFunctionSymbol<*>

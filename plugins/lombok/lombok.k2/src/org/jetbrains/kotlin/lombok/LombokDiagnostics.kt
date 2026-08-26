@@ -42,6 +42,7 @@ import org.jetbrains.kotlin.lombok.LombokFirDiagnostics.FLAG_USAGE_WARNING
 import org.jetbrains.kotlin.lombok.LombokFirDiagnostics.LOG_PROPERTY_ALREADY_EXISTS
 import org.jetbrains.kotlin.lombok.LombokFirDiagnostics.NO_ARGS_CONSTRUCTOR_ALREADY_EXISTS
 import org.jetbrains.kotlin.lombok.LombokFirDiagnostics.STATIC_CONSTRUCTOR_ALREADY_EXISTS
+import org.jetbrains.kotlin.lombok.LombokFirDiagnostics.STATIC_CONSTRUCTOR_ON_INNER_CLASS
 import org.jetbrains.kotlin.lombok.LombokFirDiagnostics.CALL_SUPER_NOT_CALLED
 import org.jetbrains.kotlin.lombok.LombokFirDiagnostics.CALL_SUPER_TO_ANY_IS_POINTLESS
 import org.jetbrains.kotlin.lombok.LombokFirDiagnostics.TO_STRING_FUNCTION_ALREADY_EXISTS
@@ -89,6 +90,7 @@ object LombokFirDiagnostics : KtDiagnosticsContainer() {
     val NO_ARGS_CONSTRUCTOR_FORCE_REQUIRED by error0<KtAnnotationEntry>()
     val NO_ARGS_CONSTRUCTOR_ALREADY_EXISTS by warning0<KtAnnotationEntry>()
     val STATIC_CONSTRUCTOR_ALREADY_EXISTS by warning2<KtAnnotationEntry, Name, Name>()
+    val STATIC_CONSTRUCTOR_ON_INNER_CLASS by warning2<KtAnnotationEntry, Name, Name>()
     val EQUALS_OR_HASH_CODE_FUNCTIONS_ALREADY_EXIST by error0<KtAnnotationEntry>()
     val EQUALS_OR_HASH_CODE_FUNCTIONS_ARE_FINAL_IN_SUPERCLASS by error1<KtAnnotationEntry, Name>()
 
@@ -185,6 +187,13 @@ object LombokFirDiagnosticsMessages : BaseDiagnosticRendererFactory() {
         map.put(
             STATIC_CONSTRUCTOR_ALREADY_EXISTS,
             "Method ''{0}()'' is already defined in ''{1}''.",
+            CommonRenderers.NAME,
+            CommonRenderers.NAME,
+        )
+        map.put(
+            STATIC_CONSTRUCTOR_ON_INNER_CLASS,
+            "Cannot generate the static factory ''{0}()'' in inner class ''{1}'': a static function has no outer instance to " +
+                    "construct with. Nothing is generated.",
             CommonRenderers.NAME,
             CommonRenderers.NAME,
         )

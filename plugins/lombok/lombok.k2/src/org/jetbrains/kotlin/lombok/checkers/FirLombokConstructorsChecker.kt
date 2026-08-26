@@ -18,6 +18,7 @@ import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.constructors
 import org.jetbrains.kotlin.fir.declarations.declaredFunctions
 import org.jetbrains.kotlin.fir.declarations.utils.hasBackingField
+import org.jetbrains.kotlin.fir.declarations.utils.isInner
 import org.jetbrains.kotlin.fir.plugin.createConeType
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.scopes.impl.declaredMemberScope
@@ -38,6 +39,17 @@ object FirLombokConstructorsChecker : FirRegularClassChecker(MppCheckerKind.Plat
 
         val source = noArgsConstructor.annotation.source ?: declaration.source ?: return
 
+        val staticName = noArgsConstructor.staticName?.let { Name.identifier(it) }
+
+        // Nothing at all is generated for an inner class with `staticName` (see `AbstractConstructorGeneratorPart`):
+        // a static factory has no outer instance to construct with, and Lombok's own output for the Java equivalent
+        // is rejected by `javac`. The other checks below concern declarations that would have been generated, so
+        // none of them apply.
+        if (staticName != null && declaration.isInner) {
+            reporter.reportOn(source, LombokFirDiagnostics.STATIC_CONSTRUCTOR_ON_INNER_CLASS, staticName, declaration.name)
+            return
+        }
+
         if (!noArgsConstructor.force) {
             val declaredMemberScope = context.session.declaredMemberScope(declaration.symbol, memberRequiredPhase = null)
             var hasUninitializedValProperty = false
@@ -52,8 +64,6 @@ object FirLombokConstructorsChecker : FirRegularClassChecker(MppCheckerKind.Plat
                 reporter.reportOn(source, LombokFirDiagnostics.NO_ARGS_CONSTRUCTOR_FORCE_REQUIRED)
             }
         }
-
-        val staticName = noArgsConstructor.staticName?.let { Name.identifier(it) }
 
         if (staticName != null) {
             // If `staticName` is provided, we generate a companion object with a constructor function marked with `@JvmStatic`.
