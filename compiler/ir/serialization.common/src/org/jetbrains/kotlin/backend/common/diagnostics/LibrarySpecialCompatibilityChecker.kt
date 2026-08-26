@@ -54,7 +54,7 @@ abstract class LibrarySpecialCompatibilityChecker {
 
                 val toolingVersion = try {
                     KotlinToolingVersion(rawVersion)
-                } catch (_: Exception) {
+                } catch (_: IllegalArgumentException) {
                     return null
                 }
 
