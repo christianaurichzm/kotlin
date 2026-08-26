@@ -31,7 +31,9 @@ import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.konan.util.DependencyDirectories
 import org.jetbrains.kotlin.tooling.core.KotlinToolingVersion
 import java.io.File
+import java.nio.file.DirectoryNotEmptyException
 import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
 class NativeCompilerDownloader(
     val project: Project,
@@ -203,23 +205,18 @@ class NativeCompilerDownloader(
                     it.into(tmpDir)
                 }
                 val compilerTmp = tmpDir.resolve(dependencyNameWithOsAndVersion)
-                val installed = when {
-                    compilerTmp.renameTo(compilerDirectory) -> true
-                    !compilerDirectory.exists() -> {
-                        project.copy {
-                            it.from(compilerTmp)
-                            it.into(compilerDirectory)
-                        }
-                        true
-                    }
-                    // another build got there first, copying on top would rewrite files it is reading (KT-86251)
-                    else -> false
-                }
-                logger.debug("Moved Kotlin/Native compiler from $tmpDir to $compilerDirectory")
-                if (installed) {
-                    // without the marker a toolchain build sharing this konan data dir unpacks the archive over the
-                    // distribution again (KT-86251). Keep it the last thing written.
-                    compilerDirectory.resolve(NativeVersionValueSource.MARKER_FILE).createNewFile()
+                // the toolchain unpacks the archive over any distribution without this marker (KT-86251), so mark
+                // the tmp tree and let the move below publish the marker together with the distribution
+                NativeVersionValueSource.markAsProvisioned(compilerTmp)
+
+                try {
+                    // 'tmpDir' sits next to 'compilerDirectory', so this is a rename: the whole distribution, marker
+                    // included, appears in one step. REPLACE_EXISTING only ever clears an empty leftover directory.
+                    Files.move(compilerTmp.toPath(), compilerDirectory.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                    logger.debug("Moved Kotlin/Native compiler from $tmpDir to $compilerDirectory")
+                } catch (_: DirectoryNotEmptyException) {
+                    // another build installed it first, writing on top would corrupt what it is reading (KT-86251)
+                    logger.debug("Kotlin/Native compiler is already installed in $compilerDirectory")
                 }
             } finally {
                 tmpDir.deleteRecursively()
