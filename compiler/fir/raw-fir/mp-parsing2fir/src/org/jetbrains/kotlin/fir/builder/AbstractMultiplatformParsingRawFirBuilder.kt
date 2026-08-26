@@ -5,13 +5,11 @@
 
 package org.jetbrains.kotlin.fir.builder
 
-import com.intellij.lang.LighterASTNode
 import com.intellij.platform.syntax.SyntaxElementType
 import com.intellij.platform.syntax.SyntaxElementTypeSet
 import com.intellij.platform.syntax.element.SyntaxTokenTypes.BAD_CHARACTER
 import com.intellij.platform.syntax.element.SyntaxTokenTypes.ERROR_ELEMENT
 import com.intellij.platform.syntax.syntaxElementTypeSetOf
-import com.intellij.psi.tree.IElementType
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.lightTree.converter.AbstractTreeRawFirBuilder
 import org.jetbrains.kotlin.kmp.lexer.KtTokens
@@ -42,8 +40,27 @@ abstract class AbstractMultiplatformParsingRawFirBuilder(
         get() = tree.getType(this)
 
     override fun SyntaxElementType.isPlus(): Boolean = this == KtTokens.PLUS
-
     override fun SyntaxElementType.isMinus(): Boolean = this == KtTokens.MINUS
+
+    override fun SyntaxElementType.isIntegerConstant(): Boolean = this == KtTokens.INTEGER_LITERAL
+    override fun SyntaxElementType.isFloatConstant(): Boolean = this == KtTokens.FLOAT_LITERAL
+    override fun SyntaxElementType.isBooleanConstant(): Boolean = this == KtNodeTypes.BOOLEAN_CONSTANT
+    override fun SyntaxElementType.isCharacterConstant(): Boolean = this == KtTokens.CHARACTER_LITERAL
+    override fun SyntaxElementType.isNullConstant(): Boolean = this == KtNodeTypes.NULL
+
+    override fun SyntaxElementType.isStringInterpolationPrefix(): Boolean = this == KtNodeTypes.STRING_INTERPOLATION_PREFIX
+    override fun SyntaxElementType.isOpenQuote(): Boolean = this == KtTokens.OPEN_QUOTE
+    override fun SyntaxElementType.isClosingQuote(): Boolean = this == KtTokens.CLOSING_QUOTE
+    override fun SyntaxElementType.isLiteralStringTemplateEntry(): Boolean = this == KtNodeTypes.LITERAL_STRING_TEMPLATE_ENTRY
+    override fun SyntaxElementType.isEscapeStringTemplateEntry(): Boolean = this == KtNodeTypes.ESCAPE_STRING_TEMPLATE_ENTRY
+    override fun SyntaxElementType.isShortStringTemplateEntry(): Boolean = this == KtNodeTypes.SHORT_STRING_TEMPLATE_ENTRY
+    override fun SyntaxElementType.isLongStringTemplateEntry(): Boolean = this == KtNodeTypes.LONG_STRING_TEMPLATE_ENTRY
+
+    override fun SyntaxElementType.isArrayAccessExpression(): Boolean = this == KtNodeTypes.ARRAY_ACCESS_EXPRESSION
+    override fun SyntaxElementType.isSafeAccessExpression(): Boolean = this == KtNodeTypes.SAFE_ACCESS_EXPRESSION
+    override fun SyntaxElementType.isParenthesized(): Boolean = this == KtNodeTypes.PARENTHESIZED
+    override fun SyntaxElementType.isLabeledExpression(): Boolean = this == KtNodeTypes.LABELED_EXPRESSION
+    override fun SyntaxElementType.isAnnotatedExpression(): Boolean = this == KtNodeTypes.ANNOTATED_EXPRESSION
 
     val LightNode.tokenType: SyntaxElementType
         get() = tree.getType(this)
