@@ -13,3 +13,17 @@ interface Base {
 class C(override val x: String) : Base {
     override fun equals(@EqualityBound(C::class) other: Any?): Boolean = x == other.x
 }
+
+open class RemovedClass
+
+interface NewBase {
+    val x: String
+}
+
+open class WithNewBase(override val x: String) : Base
+
+open class AliasTarget(val x: String)
+open class ChangedAliasTarget(val x: String)
+
+typealias RemovedAlias = AliasTarget
+typealias ChangedAlias = AliasTarget
