@@ -1,6 +1,15 @@
 public final class Clazz /* Clazz*/ implements Iface {
   private int valueInt;
 
+  @java.lang.Override()
+  @kotlin.jvm.JvmExposeBoxed()
+  @org.jetbrains.annotations.NotNull()
+  public @org.jetbrains.annotations.NotNull() ValueInt getValueInt();//  getValueInt()
+
+  @java.lang.Override()
+  @kotlin.jvm.JvmExposeBoxed()
+  public void setValueInt(@org.jetbrains.annotations.NotNull() ValueInt);//  setValueInt(@org.jetbrains.annotations.NotNull() ValueInt)
+
   public  Clazz();//  .ctor()
 }
 

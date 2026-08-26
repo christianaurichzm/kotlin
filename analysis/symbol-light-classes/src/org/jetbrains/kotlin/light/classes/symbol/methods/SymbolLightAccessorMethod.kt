@@ -530,7 +530,8 @@ internal class SymbolLightAccessorMethod private constructor(
                 isAffectedByValueClass = hasMangledNameDueValueClassesInSignature || isNonMaterializableValueClassProperty,
                 hasJvmNameAnnotation = hasJvmNameAnnotation,
                 isSuspend = false,
-                isOverridable = accessor.isOverridable(),
+                // The containing class has to be taken from the property, as the accessor is contained in the property
+                isOverridable = accessor.isOverridable(property.containingDeclaration as? KaClassSymbol),
                 // An accessor may be private while its property is not (e.g. `var p: IC; private set(value) {}`)
                 isEffectivelyPrivate = accessor.visibility == KaSymbolVisibility.PRIVATE || isEffectivelyPrivate(property),
             )

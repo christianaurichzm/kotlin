@@ -70,8 +70,8 @@ internal class MethodGenerationResult(val isRegularMethodRequired: Boolean, val 
 }
 
 /**
- * Whether [symbol] is effectively private: either it is `private` itself, or it is a member
- * (transitively) of a `private` class.
+ * Whether [symbol] is effectively private: either it is inaccessible outside its own declaration (e.g., it is
+ * `private`, or it is an anonymous object), or it is a member (transitively) of such a class.
  *
  * Mirrors `org.jetbrains.kotlin.ir.overrides.isEffectivelyPrivate` used by the JVM backend so that
  * light classes do not autogenerate `@JvmExposeBoxed` boxed variants for declarations that cannot be
@@ -79,10 +79,21 @@ internal class MethodGenerationResult(val isRegularMethodRequired: Boolean, val 
  */
 context(_: KaSession)
 internal fun isEffectivelyPrivate(symbol: KaDeclarationSymbol): Boolean {
-    if (symbol.visibility == KaSymbolVisibility.PRIVATE) return true
+    if (!symbol.isNonPrivate) return true
     val containingClass = symbol.containingDeclaration as? KaClassSymbol ?: return false
     return isEffectivelyPrivate(containingClass)
 }
+
+/**
+ * Whether the declaration is accessible outside its own declaration.
+ *
+ * Mirrors `org.jetbrains.kotlin.ir.overrides.isNonPrivate` used by the JVM backend. In particular, an anonymous object
+ * (e.g., the body of an enum entry) is inaccessible, so its members cannot be exposed.
+ */
+private val KaDeclarationSymbol.isNonPrivate: Boolean
+    get() = visibility == KaSymbolVisibility.PUBLIC ||
+            visibility == KaSymbolVisibility.PROTECTED ||
+            visibility == KaSymbolVisibility.INTERNAL
 
 /**
  * Analyzes the requirement for regular and boxed method generation based on given parameters.
@@ -147,5 +158,25 @@ internal fun methodGeneration(
     )
 }
 
-internal fun KaDeclarationSymbol.isOverridable(): Boolean =
-    visibility != KaSymbolVisibility.PRIVATE && modality != KaSymbolModality.FINAL
+/**
+ * Whether the declaration can be overridden.
+ *
+ * Mirrors `org.jetbrains.kotlin.ir.util.isOverridable` used by the JVM backend: a member of a class which cannot be
+ * inherited is not overridable even if the member's own modality is [KaSymbolModality.OPEN].
+ * The latter is the case for `override` members without an explicit `final` modifier.
+ *
+ * @param containingClass the class which declares this member, or `null` if the declaration is not a class member
+ */
+internal fun KaDeclarationSymbol.isOverridable(containingClass: KaClassSymbol?): Boolean =
+    visibility != KaSymbolVisibility.PRIVATE &&
+            modality != KaSymbolModality.FINAL &&
+            containingClass?.isEffectivelyFinalClass != true
+
+/**
+ * Whether the class cannot be inherited, so its members cannot be overridden.
+ *
+ * Mirrors `org.jetbrains.kotlin.ir.util.isFinalClass` used by the JVM backend: an enum class is not treated as final,
+ * as its members can be overridden inside enum entries.
+ */
+private val KaClassSymbol.isEffectivelyFinalClass: Boolean
+    get() = modality == KaSymbolModality.FINAL && classKind != KaClassKind.ENUM_CLASS
