@@ -13,18 +13,13 @@ import org.jetbrains.kotlin.fir.expressions.FirCallableReferenceAccess
 import org.jetbrains.kotlin.fir.expressions.allReceiverExpressions
 import org.jetbrains.kotlin.fir.types.classId
 import org.jetbrains.kotlin.fir.types.resolvedType
-import org.jetbrains.kotlin.text
 
 object AtomicCallableReferenceChecker : FirCallableReferenceAccessChecker(MppCheckerKind.Common) {
     context(context: CheckerContext, reporter: DiagnosticReporter)
     override fun check(expression: FirCallableReferenceAccess) {
         expression.allReceiverExpressions.forEach {
             if (it.resolvedType.classId?.isAtomicType() == true) {
-                reporter.reportOn(
-                    expression.source,
-                    AtomicfuErrors.ATOMIC_FUNCTION_CALLABLE_REFERENCES_ARE_FORBIDDEN,
-                    expression.source.text.toString()
-                )
+                reporter.reportOn(expression.source, AtomicfuErrors.ATOMIC_FUNCTION_CALLABLE_REFERENCES_ARE_FORBIDDEN)
             }
         }
     }

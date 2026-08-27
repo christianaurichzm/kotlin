@@ -66,7 +66,7 @@ object AtomicfuErrorMessages : BaseDiagnosticRendererFactory() {
                 "from being referenced outside the current Kotlin file, they must be declared as private."
 
     private const val ATOMIC_FUNCTION_CALLABLE_REFERENCES_ARE_FORBIDDEN_MESSAGE =
-        "Taking a reference to an atomic member or extension function is prohibited: `''{0}''`."
+        "Callable references to atomic member or extension functions are prohibited."
 
     private const val ATOMIC_FACTORIES_ARE_FOR_INITIALIZATION_ONLY_MESSAGE =
         "Atomic factories can only be called to initialize an atomic property or as delegates: `''{0}''`."
@@ -112,7 +112,7 @@ object AtomicfuErrorMessages : BaseDiagnosticRendererFactory() {
             AtomicfuErrors.NON_PRIVATE_ATOMIC_COMPANIONS_ARE_FORBIDDEN, NON_PRIVATE_ATOMIC_COMPANIONS_ARE_FORBIDDEN_MESSAGE, Renderers.TO_STRING
         )
         map.put(
-            AtomicfuErrors.ATOMIC_FUNCTION_CALLABLE_REFERENCES_ARE_FORBIDDEN, ATOMIC_FUNCTION_CALLABLE_REFERENCES_ARE_FORBIDDEN_MESSAGE, Renderers.TO_STRING
+            AtomicfuErrors.ATOMIC_FUNCTION_CALLABLE_REFERENCES_ARE_FORBIDDEN, ATOMIC_FUNCTION_CALLABLE_REFERENCES_ARE_FORBIDDEN_MESSAGE
         )
         map.put(
             AtomicfuErrors.ATOMIC_FACTORIES_ARE_FOR_INITIALIZATION_ONLY, ATOMIC_FACTORIES_ARE_FOR_INITIALIZATION_ONLY_MESSAGE, Renderers.TO_STRING
