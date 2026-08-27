@@ -14,7 +14,6 @@ import org.jetbrains.kotlin.fir.diagnostics.ConeSimpleDiagnostic
 import org.jetbrains.kotlin.fir.diagnostics.DiagnosticKind
 import org.jetbrains.kotlin.fir.java.declarations.FirJavaClass
 import org.jetbrains.kotlin.fir.resolve.substitution.substitutorByMap
-import org.jetbrains.kotlin.fir.symbols.ConeTypeParameterLookupTagImpl
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
@@ -23,7 +22,6 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
 import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.java.direct.model.FirBackedJavaClassifierType
-import org.jetbrains.kotlin.java.direct.model.JavaTypeParameterTypeOverAst
 import org.jetbrains.kotlin.java.direct.model.firBackedJavaType
 import org.jetbrains.kotlin.load.java.JavaClassFinder
 import org.jetbrains.kotlin.load.java.structure.JavaClass
@@ -439,7 +437,7 @@ internal fun recoverInheritedOuterTypeArguments(innerClassId: ClassId): List<Jav
             for (supertype in FirBackedJavaClassAdapter(currentId, session).supertypes) {
                 val coneSupertype = (supertype as? FirBackedJavaClassifierType)?.coneType ?: continue
                 val recovered = findTypeArgsForClassInHierarchy(coneSupertype, outerClassId, session, mutableSetOf())
-                if (recovered != null) return recovered.map { recoveredOuterTypeArgument(it, inheritingClass, session) }
+                if (recovered != null) return recovered.map { firBackedJavaType(it, session, declarationChainRoot = inheritingClass) }
             }
         }
         if (inheritingClass.isStatic) break
@@ -449,24 +447,17 @@ internal fun recoverInheritedOuterTypeArguments(innerClassId: ClassId): List<Jav
 }
 
 /**
- * Wraps one recovered outer type argument as a [JavaType].
+ * Finds the [JavaTypeParameter] denoted by [symbol] among those declared by [startClass] or by one of
+ * its outer classes, innermost first. A `static` class has no enclosing instance and severs the
+ * chain, so its outer classes' parameters are not visible in its declarations.
  *
- * A recovered argument is often a type parameter of the containing class itself
- * (`class Outer<E1, E2> extends BaseOuter<Integer, E1>` recovers `Integer, E1`). Such an argument
- * must be handed back as the model's *own* [JavaTypeParameter], the one declared by [inheritingClass]
- * or by one of its outer classes.
+ * The owner class is matched first and only then the parameter by name: a recovered argument may
+ * belong to another class of the hierarchy (`class A<T> { class Sub<U> extends Mid<T> }` recovers
+ * `A`'s `T`), which a plain by-name walk would confuse with a same-named parameter of an inner one.
+ * A parameter of a class outside the chain has no binding at this reference at all, so `null` here
+ * correctly routes it to a wildcard.
  */
-private fun recoveredOuterTypeArgument(projection: ConeTypeProjection, inheritingClass: JavaClass, session: FirSession): JavaType {
-    val type = (projection as? ConeKotlinType)?.lowerBoundIfFlexible() ?: return firBackedJavaType(projection, session)
-    val lookupTag = (type as? ConeTypeParameterType)?.lookupTag
-    if (lookupTag is ConeTypeParameterLookupTagImpl) {
-        javaTypeParameterInDeclarationChain(inheritingClass, lookupTag.typeParameterSymbol)
-            ?.let { return JavaTypeParameterTypeOverAst(it) }
-    }
-    return firBackedJavaType(type, session)
-}
-
-private fun javaTypeParameterInDeclarationChain(startClass: JavaClass, symbol: FirTypeParameterSymbol): JavaTypeParameter? {
+internal fun javaTypeParameterInDeclarationChain(startClass: JavaClass, symbol: FirTypeParameterSymbol): JavaTypeParameter? {
     val ownerClassId = (symbol.containingDeclarationSymbol as? FirClassSymbol<*>)?.classId ?: return null
     var current: JavaClass? = startClass
     while (current != null) {
