@@ -16,8 +16,8 @@ import org.jetbrains.kotlin.fir.declarations.utils.effectiveVisibility
 import org.jetbrains.kotlin.fir.declarations.utils.hasBackingField
 import org.jetbrains.kotlin.fir.declarations.utils.isCompanionBlockMember
 import org.jetbrains.kotlin.fir.declarations.utils.isCompanionExtension
-import org.jetbrains.kotlin.fir.declarations.utils.isExtension
 import org.jetbrains.kotlin.fir.declarations.utils.isInline
+import org.jetbrains.kotlin.fir.declarations.utils.isInstanceExtension
 import org.jetbrains.kotlin.fir.resolve.transformers.publishedApiEffectiveVisibility
 import org.jetbrains.kotlin.fir.symbols.impl.FirLocalPropertySymbol
 import org.jetbrains.kotlin.fir.types.classId
@@ -36,7 +36,7 @@ object AtomicfuPropertyChecker : FirPropertyChecker(MppCheckerKind.Common) {
     context(context: CheckerContext, reporter: DiagnosticReporter)
     override fun check(declaration: FirProperty) {
         // Check extension properties with atomic receiver
-        if (declaration.isExtension) {
+        if (declaration.isInstanceExtension) {
             val receiverClassId = declaration.receiverParameter?.symbol?.resolvedType?.classId
             if (receiverClassId?.isAtomicArrayType() == true) {
                 reporter.reportOn(
