@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.sourcemaps
 
 import org.jetbrains.kotlin.js.parser.sourcemaps.ECMA426BasedSourceMapParser.BindingRecord
+import org.jetbrains.kotlin.js.parser.sourcemaps.ECMA426BasedSourceMapParser.DecodedSourceRecord
 import org.jetbrains.kotlin.js.parser.sourcemaps.ECMA426BasedSourceMapParser.GeneratedRangeCallSiteRecord
 import org.jetbrains.kotlin.js.parser.sourcemaps.ECMA426BasedSourceMapParser.GeneratedRangeRecord
 import org.jetbrains.kotlin.js.parser.sourcemaps.ECMA426BasedSourceMapParser.OriginalScopeRecord
@@ -15,6 +16,11 @@ import org.junit.jupiter.api.Test
 
 /**
  * Tests based on the test cases taken from https://github.com/hbenl/tc39-proposal-scope-mapping/ by Holger Benl (https://github.com/hbenl)
+ *
+ * The original combined `scopes` field format (`<OriginalScopeTreeList>,<TopLevelItemList>` in one string) has been
+ * split into a per-source `scopes` string and a shared `ranges` string, per the ECMA-426 scopes/ranges split. Each
+ * fixture below was re-split at that boundary, and every `RangeDefinition` occurrence was migrated from a single VLQ
+ * to the two-VLQ `DefinitionSourceIdx DefinitionScopeIdx` form.
  */
 class JsSourcemapScopesDecoderSuccessTest {
     /*
@@ -46,7 +52,8 @@ class JsSourcemapScopesDecoderSuccessTest {
     */
     @Test
     fun defaultParameterTest() {
-        val encodedScopes = "BCAAA,DCC,BHCKEG,DEC,BCAYG,DJ,CEB,CAA,CCF,ECAA,GIJ,EHCKC,GKL,ECYC,GI,FEB,FA,FCF"
+        val encodedScopes = "BCAAA,DCC,BHCKEG,DEC,BCAYG,DJ,CEB,CAA,CCF"
+        val encodedRanges = "ECAAA,GIJ,EHCKAC,GKL,ECYAC,GI,FEB,FA,FCF"
 
         val expectedOriginalScopes = [OriginalScopeRecord(
             start = PositionRecord(line = 0u, column = 0u),
@@ -74,43 +81,45 @@ class JsSourcemapScopesDecoderSuccessTest {
             isStackFrame = false,
         )]
 
-        val expectedGeneratedRanges = [GeneratedRangeRecord(
-            start = PositionRecord(line = 0u, column = 0u),
-            end = PositionRecord(line = 8u, column = 5u),
-            definition = expectedOriginalScopes[0],
-            stackFrameType = StackFrameType.NONE,
-            bindings = [
-                [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "a")],
-                [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "b")],
-            ],
-            callSite = null,
-            children = [GeneratedRangeRecord(
-                start = PositionRecord(line = 2u, column = 10u),
-                end = PositionRecord(line = 6u, column = 1u),
-                definition = expectedOriginalScopes[0].children[0],
-                stackFrameType = StackFrameType.ORIGINAL,
+        val expectedGeneratedRanges = { source: DecodedSourceRecord ->
+            [GeneratedRangeRecord(
+                start = PositionRecord(line = 0u, column = 0u),
+                end = PositionRecord(line = 8u, column = 5u),
+                definition = expectedOriginalScopes[0],
+                stackFrameType = StackFrameType.NONE,
                 bindings = [
-                    [BindingRecord(from = PositionRecord(line = 2u, column = 10u), binding = "c")],
-                    [BindingRecord(from = PositionRecord(line = 2u, column = 10u), binding = "d")],
+                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "a")],
+                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "b")],
                 ],
                 callSite = null,
                 children = [GeneratedRangeRecord(
-                    start = PositionRecord(line = 2u, column = 34u),
+                    start = PositionRecord(line = 2u, column = 10u),
                     end = PositionRecord(line = 6u, column = 1u),
-                    definition = expectedOriginalScopes[0].children[0].children[0],
-                    stackFrameType = StackFrameType.NONE,
+                    definition = expectedOriginalScopes[0].children[0],
+                    stackFrameType = StackFrameType.ORIGINAL,
                     bindings = [
-                        [BindingRecord(from = PositionRecord(line = 2u, column = 34u), binding = "a")],
+                        [BindingRecord(from = PositionRecord(line = 2u, column = 10u), binding = "c")],
+                        [BindingRecord(from = PositionRecord(line = 2u, column = 10u), binding = "d")],
                     ],
                     callSite = null,
-                    children = [],
+                    children = [GeneratedRangeRecord(
+                        start = PositionRecord(line = 2u, column = 34u),
+                        end = PositionRecord(line = 6u, column = 1u),
+                        definition = expectedOriginalScopes[0].children[0].children[0],
+                        stackFrameType = StackFrameType.NONE,
+                        bindings = [
+                            [BindingRecord(from = PositionRecord(line = 2u, column = 34u), binding = "a")],
+                        ],
+                        callSite = null,
+                        children = [],
+                    )],
                 )],
-            )],
-        )]
+            )]
+        }
 
         val scopeNames = ["module", "n", "f", "function", "x", "y", "block", "a", "b", "c", "d"]
 
-        testDecoder(encodedScopes, expectedOriginalScopes, expectedGeneratedRanges, scopeNames)
+        testDecoder(encodedScopes, encodedRanges, expectedOriginalScopes, scopeNames, expectedGeneratedRanges)
     }
 
     /*
@@ -142,7 +151,8 @@ class JsSourcemapScopesDecoderSuccessTest {
     */
     @Test
     fun variableShadowingTest() {
-        val encodedScopes = "BCAAA,DC,BHAACE,DECC,BHBCEA,DCC,CDD,CDB,CBJ,ECAA,GJ,EGAC,GKLM,EHBCC,GLM,FDD,FDB,FBF"
+        val encodedScopes = "BCAAA,DC,BHAACE,DECC,BHBCEA,DCC,CDD,CDB,CBJ"
+        val encodedRanges = "ECAAA,GJ,EGAAC,GKLM,EHBCAC,GLM,FDD,FDB,FBF"
 
         val expectedOriginalScopes = [OriginalScopeRecord(
             start = PositionRecord(line = 0u, column = 0u),
@@ -170,45 +180,47 @@ class JsSourcemapScopesDecoderSuccessTest {
             isStackFrame = false,
         )]
 
-        val expectedGeneratedRanges = [GeneratedRangeRecord(
-            start = PositionRecord(line = 0u, column = 0u),
-            end = PositionRecord(line = 8u, column = 5u),
-            definition = expectedOriginalScopes[0],
-            stackFrameType = StackFrameType.NONE,
-            bindings = [
-                [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "f")],
-            ],
-            callSite = null,
-            children = [GeneratedRangeRecord(
+        val expectedGeneratedRanges = { source: DecodedSourceRecord ->
+            [GeneratedRangeRecord(
                 start = PositionRecord(line = 0u, column = 0u),
-                end = PositionRecord(line = 7u, column = 1u),
-                definition = expectedOriginalScopes[0].children[0],
-                stackFrameType = StackFrameType.ORIGINAL,
+                end = PositionRecord(line = 8u, column = 5u),
+                definition = expectedOriginalScopes[0],
+                stackFrameType = StackFrameType.NONE,
                 bindings = [
-                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "g")],
-                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "a")],
-                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "b")],
+                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "f")],
                 ],
                 callSite = null,
                 children = [GeneratedRangeRecord(
-                    start = PositionRecord(line = 1u, column = 2u),
-                    end = PositionRecord(line = 4u, column = 3u),
-                    definition = expectedOriginalScopes[0].children[0].children[0],
+                    start = PositionRecord(line = 0u, column = 0u),
+                    end = PositionRecord(line = 7u, column = 1u),
+                    definition = expectedOriginalScopes[0].children[0],
                     stackFrameType = StackFrameType.ORIGINAL,
                     bindings = [
-                        [BindingRecord(from = PositionRecord(line = 1u, column = 2u), binding = "a")],
-                        [BindingRecord(from = PositionRecord(line = 1u, column = 2u), binding = "b")],
+                        [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "g")],
+                        [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "a")],
+                        [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "b")],
                     ],
                     callSite = null,
-                    children = [],
+                    children = [GeneratedRangeRecord(
+                        start = PositionRecord(line = 1u, column = 2u),
+                        end = PositionRecord(line = 4u, column = 3u),
+                        definition = expectedOriginalScopes[0].children[0].children[0],
+                        stackFrameType = StackFrameType.ORIGINAL,
+                        bindings = [
+                            [BindingRecord(from = PositionRecord(line = 1u, column = 2u), binding = "a")],
+                            [BindingRecord(from = PositionRecord(line = 1u, column = 2u), binding = "b")],
+                        ],
+                        callSite = null,
+                        children = [],
+                    )],
                 )],
-            )],
-        )]
+            )]
+        }
 
         val scopeNames =
             ["module", "outer", "function", "inner", "num", "num_plus_one", "value", "value_plus_one", "f", "g", "a", "b"]
 
-        testDecoder(encodedScopes, expectedOriginalScopes, expectedGeneratedRanges, scopeNames)
+        testDecoder(encodedScopes, encodedRanges, expectedOriginalScopes, scopeNames, expectedGeneratedRanges)
     }
 
     /*
@@ -238,7 +250,8 @@ class JsSourcemapScopesDecoderSuccessTest {
     */
     @Test
     fun removedScopesTest() {
-        val encodedScopes = "BCAAA,BCAAC,DE,BCDCA,DA,CDD,CCB,CAA,ECAA,ECAC,GE,EDDCC,GF,FBS,FCB,FA"
+        val encodedScopes = "BCAAA,BCAAC,DE,BCDCA,DA,CDD,CCB,CAA"
+        val encodedRanges = "ECAAA,ECAAC,GE,EDDCAC,GF,FBS,FCB,FA"
 
         val expectedOriginalScopes = [OriginalScopeRecord(
             start = PositionRecord(line = 0u, column = 0u),
@@ -266,39 +279,41 @@ class JsSourcemapScopesDecoderSuccessTest {
             isStackFrame = false,
         )]
 
-        val expectedGeneratedRanges = [GeneratedRangeRecord(
-            start = PositionRecord(line = 0u, column = 0u),
-            end = PositionRecord(line = 6u, column = 1u),
-            definition = expectedOriginalScopes[0],
-            stackFrameType = StackFrameType.NONE,
-            bindings = [],
-            callSite = null,
-            children = [GeneratedRangeRecord(
+        val expectedGeneratedRanges = { source: DecodedSourceRecord ->
+            [GeneratedRangeRecord(
                 start = PositionRecord(line = 0u, column = 0u),
                 end = PositionRecord(line = 6u, column = 1u),
-                definition = expectedOriginalScopes[0].children[0],
+                definition = expectedOriginalScopes[0],
                 stackFrameType = StackFrameType.NONE,
-                bindings = [
-                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "x1")],
-                ],
+                bindings = [],
                 callSite = null,
                 children = [GeneratedRangeRecord(
-                    start = PositionRecord(line = 3u, column = 2u),
-                    end = PositionRecord(line = 4u, column = 18u),
-                    definition = expectedOriginalScopes[0].children[0].children[0],
+                    start = PositionRecord(line = 0u, column = 0u),
+                    end = PositionRecord(line = 6u, column = 1u),
+                    definition = expectedOriginalScopes[0].children[0],
                     stackFrameType = StackFrameType.NONE,
                     bindings = [
-                        [BindingRecord(from = PositionRecord(line = 3u, column = 2u), binding = "x2")],
+                        [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "x1")],
                     ],
                     callSite = null,
-                    children = [],
+                    children = [GeneratedRangeRecord(
+                        start = PositionRecord(line = 3u, column = 2u),
+                        end = PositionRecord(line = 4u, column = 18u),
+                        definition = expectedOriginalScopes[0].children[0].children[0],
+                        stackFrameType = StackFrameType.NONE,
+                        bindings = [
+                            [BindingRecord(from = PositionRecord(line = 3u, column = 2u), binding = "x2")],
+                        ],
+                        callSite = null,
+                        children = [],
+                    )],
                 )],
-            )],
-        )]
+            )]
+        }
 
         val scopeNames = ["module", "block", "x", "x1", "x2"]
 
-        testDecoder(encodedScopes, expectedOriginalScopes, expectedGeneratedRanges, scopeNames)
+        testDecoder(encodedScopes, encodedRanges, expectedOriginalScopes, scopeNames, expectedGeneratedRanges)
     }
 
     /*
@@ -324,7 +339,8 @@ class JsSourcemapScopesDecoderSuccessTest {
     */
     @Test
     fun doubleInliningTest() {
-        val encodedScopes = "BCAAA,DCC,BHAACG,DE,CCB,BHBACA,DA,CDB,CCrB,ECAA,GAA,ECAE,GG,IAHA,ECAD,GH,IAEC,Fb,FBe,FBrB"
+        val encodedScopes = "BCAAA,DCC,BHAACG,DE,CCB,BHBACA,DA,CDB,CCrB"
+        val encodedRanges = "ECAAA,GAA,ECAAE,GG,IAHA,ECAAD,GH,IAEC,Fb,FBe,FBrB"
 
         val expectedOriginalScopes = [OriginalScopeRecord(
             start = PositionRecord(line = 0u, column = 0u),
@@ -355,42 +371,44 @@ class JsSourcemapScopesDecoderSuccessTest {
             isStackFrame = false,
         )]
 
-        val expectedGeneratedRanges = [GeneratedRangeRecord(
-            start = PositionRecord(line = 0u, column = 0u),
-            end = PositionRecord(line = 2u, column = 43u),
-            definition = expectedOriginalScopes[0],
-            stackFrameType = StackFrameType.NONE,
-            bindings = [
-                [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
-                [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
-            ],
-            callSite = null,
-            children = [GeneratedRangeRecord(
+        val expectedGeneratedRanges = { source: DecodedSourceRecord ->
+            [GeneratedRangeRecord(
                 start = PositionRecord(line = 0u, column = 0u),
-                end = PositionRecord(line = 1u, column = 30u),
-                definition = expectedOriginalScopes[0].children[1],
+                end = PositionRecord(line = 2u, column = 43u),
+                definition = expectedOriginalScopes[0],
                 stackFrameType = StackFrameType.NONE,
                 bindings = [
-                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "\"amet\"")],
+                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
+                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
                 ],
-                callSite = GeneratedRangeCallSiteRecord(sourceIndex = 0u, line = 7u, column = 0u),
+                callSite = null,
                 children = [GeneratedRangeRecord(
                     start = PositionRecord(line = 0u, column = 0u),
-                    end = PositionRecord(line = 0u, column = 27u),
-                    definition = expectedOriginalScopes[0].children[0],
+                    end = PositionRecord(line = 1u, column = 30u),
+                    definition = expectedOriginalScopes[0].children[1],
                     stackFrameType = StackFrameType.NONE,
                     bindings = [
-                        [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "\"ipsum\"")],
+                        [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "\"amet\"")],
                     ],
-                    callSite = GeneratedRangeCallSiteRecord(sourceIndex = 0u, line = 4u, column = 2u),
-                    children = [],
+                    callSite = GeneratedRangeCallSiteRecord(source = source, line = 7u, column = 0u),
+                    children = [GeneratedRangeRecord(
+                        start = PositionRecord(line = 0u, column = 0u),
+                        end = PositionRecord(line = 0u, column = 27u),
+                        definition = expectedOriginalScopes[0].children[0],
+                        stackFrameType = StackFrameType.NONE,
+                        bindings = [
+                            [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "\"ipsum\"")],
+                        ],
+                        callSite = GeneratedRangeCallSiteRecord(source = source, line = 4u, column = 2u),
+                        children = [],
+                    )],
                 )],
-            )],
-        )]
+            )]
+        }
 
         val scopeNames = ["module", "f", "g", "function", "x", "\"amet\"", "\"ipsum\""]
 
-        testDecoder(encodedScopes, expectedOriginalScopes, expectedGeneratedRanges, scopeNames)
+        testDecoder(encodedScopes, encodedRanges, expectedOriginalScopes, scopeNames, expectedGeneratedRanges)
     }
 
     /*
@@ -423,74 +441,84 @@ class JsSourcemapScopesDecoderSuccessTest {
     */
     @Test
     fun inlineAcrossModulesTest() {
-        val encodedScopes = "BCAAA,DCC,CDT,BCAAA,DCF,BHBVCI,DI,CCB,CAA,ECAA,GAH,ECAC,GIA,EDCAC,GJ,IACA,FCV,FBR,FA"
+        // The second source's first `ScopeVariable` delta was re-derived from a fresh (per-source) index
+        // accumulator instead of continuing from the first source's, per the split decoding model.
+        val encodedScopesPerSource = ["BCAAA,DCC,CDT", "BCAAA,DGF,BHBVCI,DI,CCB,CAA"]
+        val encodedRanges = "ECAAA,GAH,ECACA,GIA,EDCAAC,GJ,IACA,FCV,FBR,FA"
 
-        val expectedOriginalScopes = [
-            OriginalScopeRecord(
-                start = PositionRecord(line = 0u, column = 0u),
-                end = PositionRecord(line = 3u, column = 19u),
-                name = null,
-                kind = "module",
-                variables = ["f", "num"],
-                children = [],
-                isStackFrame = false,
-            ),
-            OriginalScopeRecord(
-                start = PositionRecord(line = 0u, column = 0u),
-                end = PositionRecord(line = 3u, column = 1u),
-                name = null,
-                kind = "module",
-                variables = ["increment", "f"],
-                children = [OriginalScopeRecord(
-                    start = PositionRecord(line = 1u, column = 21u),
-                    end = PositionRecord(line = 3u, column = 1u),
-                    name = "f",
-                    kind = "function",
-                    variables = ["x"],
-                    children = [],
-                    isStackFrame = true,
-                )],
-                isStackFrame = false,
-            ),
-        ]
-
-        val expectedGeneratedRanges = [GeneratedRangeRecord(
+        val expectedOriginalScopesOne = [OriginalScopeRecord(
             start = PositionRecord(line = 0u, column = 0u),
-            end = PositionRecord(line = 5u, column = 17u),
-            definition = expectedOriginalScopes[0],
-            stackFrameType = StackFrameType.NONE,
-            bindings = [
-                [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
-                [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "o")],
-            ],
-            callSite = null,
-            children = [GeneratedRangeRecord(
+            end = PositionRecord(line = 3u, column = 19u),
+            name = null,
+            kind = "module",
+            variables = ["f", "num"],
+            children = [],
+            isStackFrame = false,
+        )]
+
+        val expectedOriginalScopesTwo = [OriginalScopeRecord(
+            start = PositionRecord(line = 0u, column = 0u),
+            end = PositionRecord(line = 3u, column = 1u),
+            name = null,
+            kind = "module",
+            variables = ["increment", "f"],
+            children = [OriginalScopeRecord(
+                start = PositionRecord(line = 1u, column = 21u),
+                end = PositionRecord(line = 3u, column = 1u),
+                name = "f",
+                kind = "function",
+                variables = ["x"],
+                children = [],
+                isStackFrame = true,
+            )],
+            isStackFrame = false,
+        )]
+
+        val expectedGeneratedRanges = { sources: List<DecodedSourceRecord> ->
+            [GeneratedRangeRecord(
                 start = PositionRecord(line = 0u, column = 0u),
                 end = PositionRecord(line = 5u, column = 17u),
-                definition = expectedOriginalScopes[1],
+                definition = expectedOriginalScopesOne[0],
                 stackFrameType = StackFrameType.NONE,
                 bindings = [
-                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "l")],
                     [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
+                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "o")],
                 ],
                 callSite = null,
                 children = [GeneratedRangeRecord(
-                    start = PositionRecord(line = 2u, column = 0u),
-                    end = PositionRecord(line = 4u, column = 21u),
-                    definition = expectedOriginalScopes[1].children[0],
+                    start = PositionRecord(line = 0u, column = 0u),
+                    end = PositionRecord(line = 5u, column = 17u),
+                    definition = expectedOriginalScopesTwo[0],
                     stackFrameType = StackFrameType.NONE,
                     bindings = [
-                        [BindingRecord(from = PositionRecord(line = 2u, column = 0u), binding = "e")],
+                        [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "l")],
+                        [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
                     ],
-                    callSite = GeneratedRangeCallSiteRecord(sourceIndex = 0u, line = 2u, column = 0u),
-                    children = [],
+                    callSite = null,
+                    children = [GeneratedRangeRecord(
+                        start = PositionRecord(line = 2u, column = 0u),
+                        end = PositionRecord(line = 4u, column = 21u),
+                        definition = expectedOriginalScopesTwo[0].children[0],
+                        stackFrameType = StackFrameType.NONE,
+                        bindings = [
+                            [BindingRecord(from = PositionRecord(line = 2u, column = 0u), binding = "e")],
+                        ],
+                        callSite = GeneratedRangeCallSiteRecord(source = sources[0], line = 2u, column = 0u),
+                        children = [],
+                    )],
                 )],
-            )],
-        )]
+            )]
+        }
 
         val scopeNames = ["module", "f", "num", "increment", "function", "x", "o", "l", "e"]
 
-        testDecoder(encodedScopes, expectedOriginalScopes, expectedGeneratedRanges, scopeNames)
+        testDecoder(
+            encodedScopesPerSource,
+            encodedRanges,
+            [expectedOriginalScopesOne, expectedOriginalScopesTwo],
+            scopeNames,
+            expectedGeneratedRanges,
+        )
     }
 
     /*
@@ -529,162 +557,174 @@ class JsSourcemapScopesDecoderSuccessTest {
     */
     @Test
     fun inlineAcrossModules2Test() {
-        val encodedScopes = "BCAAA,DCC,BHDQGI,DG,CCD,CBB,BCAAJ,DHIC,BHCSGI,DF,CCB,BHCSCA,DA,CCB,CDM," +
-                "ECAE,GAAA,ECAF,GJA,ECAI,GK,IBKA,ECAD,GK,IBHC,ECAF,GK,IBDC,FQ,FA,FA,FA," +
-                "ECAD,GJA,ECAI,GL,IBLA,ECAD,GL,IBHC,ECAF,GL,IBDC,FS,FA,FA,FA,FA"
+        // The second source's kind/name/first-variable deltas were re-derived from fresh (per-source) index
+        // accumulators instead of continuing from the first source's, per the split decoding model.
+        val encodedScopesPerSource = [
+            "BCAAA,DCC,BHDQGI,DG,CCD,CBB",
+            "BCAAA,DEIC,BHCSMI,DF,CCB,BHCSCA,DA,CCB,CDM",
+        ]
+        val encodedRanges = "ECACA,GAAA,ECADA,GJA,ECACC,GK,IBKA,ECAAD,GK,IBHC,ECADB,GK,IBDC,FQ,FA,FA,FA," +
+                "ECAAD,GJA,ECACC,GL,IBLA,ECAAD,GL,IBHC,ECADB,GL,IBDC,FS,FA,FA,FA,FA"
 
-        val expectedOriginalScopes = [
-            OriginalScopeRecord(
-                start = PositionRecord(line = 0u, column = 0u),
-                end = PositionRecord(line = 6u, column = 1u),
-                name = null,
-                kind = "module",
-                variables = ["MODULE_CONSTANT", "Logger"],
-                children = [OriginalScopeRecord(
-                    start = PositionRecord(line = 3u, column = 16u),
-                    end = PositionRecord(line = 5u, column = 3u),
-                    name = "log",
+        val expectedOriginalScopesModule = [OriginalScopeRecord(
+            start = PositionRecord(line = 0u, column = 0u),
+            end = PositionRecord(line = 6u, column = 1u),
+            name = null,
+            kind = "module",
+            variables = ["MODULE_CONSTANT", "Logger"],
+            children = [OriginalScopeRecord(
+                start = PositionRecord(line = 3u, column = 16u),
+                end = PositionRecord(line = 5u, column = 3u),
+                name = "log",
+                kind = "function",
+                variables = ["x"],
+                children = [],
+                isStackFrame = true,
+            )],
+            isStackFrame = false,
+        )]
+
+        val expectedOriginalScopesInlineAcrossModules = [OriginalScopeRecord(
+            start = PositionRecord(line = 0u, column = 0u),
+            end = PositionRecord(line = 11u, column = 12u),
+            name = null,
+            kind = "module",
+            variables = ["Logger", "inner", "outer"],
+            children = [
+                OriginalScopeRecord(
+                    start = PositionRecord(line = 2u, column = 18u),
+                    end = PositionRecord(line = 4u, column = 1u),
+                    name = "inner",
                     kind = "function",
                     variables = ["x"],
                     children = [],
                     isStackFrame = true,
-                )],
-                isStackFrame = false,
-            ),
-            OriginalScopeRecord(
-                start = PositionRecord(line = 0u, column = 0u),
-                end = PositionRecord(line = 11u, column = 12u),
-                name = null,
-                kind = "module",
-                variables = ["Logger", "inner", "outer"],
-                children = [
-                    OriginalScopeRecord(
-                        start = PositionRecord(line = 2u, column = 18u),
-                        end = PositionRecord(line = 4u, column = 1u),
-                        name = "inner",
-                        kind = "function",
-                        variables = ["x"],
-                        children = [],
-                        isStackFrame = true,
-                    ),
-                    OriginalScopeRecord(
-                        start = PositionRecord(line = 6u, column = 18u),
-                        end = PositionRecord(line = 8u, column = 1u),
-                        name = "outer",
-                        kind = "function",
-                        variables = ["x"],
-                        children = [],
-                        isStackFrame = true,
-                    ),
-                ],
-                isStackFrame = false,
-            ),
-        ]
-
-        val expectedGeneratedRanges = [GeneratedRangeRecord(
-            start = PositionRecord(line = 0u, column = 0u),
-            end = PositionRecord(line = 0u, column = 34u),
-            definition = expectedOriginalScopes[1],
-            stackFrameType = StackFrameType.NONE,
-            bindings = [
-                [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
-                [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
-                [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
+                ),
+                OriginalScopeRecord(
+                    start = PositionRecord(line = 6u, column = 18u),
+                    end = PositionRecord(line = 8u, column = 1u),
+                    name = "outer",
+                    kind = "function",
+                    variables = ["x"],
+                    children = [],
+                    isStackFrame = true,
+                ),
             ],
-            callSite = null,
-            children = [
-                GeneratedRangeRecord(
-                    start = PositionRecord(line = 0u, column = 0u),
-                    end = PositionRecord(line = 0u, column = 16u),
-                    definition = expectedOriginalScopes[0],
-                    stackFrameType = StackFrameType.NONE,
-                    bindings = [
-                        [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "\"module_constant\"")],
-                        [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
-                    ],
-                    callSite = null,
-                    children = [GeneratedRangeRecord(
+            isStackFrame = false,
+        )]
+
+        val expectedGeneratedRanges = { sources: List<DecodedSourceRecord> ->
+            [GeneratedRangeRecord(
+                start = PositionRecord(line = 0u, column = 0u),
+                end = PositionRecord(line = 0u, column = 34u),
+                definition = expectedOriginalScopesInlineAcrossModules[0],
+                stackFrameType = StackFrameType.NONE,
+                bindings = [
+                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
+                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
+                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
+                ],
+                callSite = null,
+                children = [
+                    GeneratedRangeRecord(
                         start = PositionRecord(line = 0u, column = 0u),
                         end = PositionRecord(line = 0u, column = 16u),
-                        definition = expectedOriginalScopes[1].children[1],
+                        definition = expectedOriginalScopesModule[0],
                         stackFrameType = StackFrameType.NONE,
                         bindings = [
-                            [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "42")],
+                            [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "\"module_constant\"")],
+                            [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
                         ],
-                        callSite = GeneratedRangeCallSiteRecord(sourceIndex = 1u, line = 10u, column = 0u),
+                        callSite = null,
                         children = [GeneratedRangeRecord(
                             start = PositionRecord(line = 0u, column = 0u),
                             end = PositionRecord(line = 0u, column = 16u),
-                            definition = expectedOriginalScopes[1].children[0],
+                            definition = expectedOriginalScopesInlineAcrossModules[0].children[1],
                             stackFrameType = StackFrameType.NONE,
                             bindings = [
                                 [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "42")],
                             ],
-                            callSite = GeneratedRangeCallSiteRecord(sourceIndex = 1u, line = 7u, column = 2u),
+                            callSite = GeneratedRangeCallSiteRecord(source = sources[1], line = 10u, column = 0u),
                             children = [GeneratedRangeRecord(
                                 start = PositionRecord(line = 0u, column = 0u),
                                 end = PositionRecord(line = 0u, column = 16u),
-                                definition = expectedOriginalScopes[0].children[0],
+                                definition = expectedOriginalScopesInlineAcrossModules[0].children[0],
                                 stackFrameType = StackFrameType.NONE,
                                 bindings = [
                                     [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "42")],
                                 ],
-                                callSite = GeneratedRangeCallSiteRecord(sourceIndex = 1u, line = 3u, column = 2u),
-                                children = [],
+                                callSite = GeneratedRangeCallSiteRecord(source = sources[1], line = 7u, column = 2u),
+                                children = [GeneratedRangeRecord(
+                                    start = PositionRecord(line = 0u, column = 0u),
+                                    end = PositionRecord(line = 0u, column = 16u),
+                                    definition = expectedOriginalScopesModule[0].children[0],
+                                    stackFrameType = StackFrameType.NONE,
+                                    bindings = [
+                                        [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "42")],
+                                    ],
+                                    callSite = GeneratedRangeCallSiteRecord(source = sources[1], line = 3u, column = 2u),
+                                    children = [],
+                                )],
                             )],
                         )],
-                    )],
-                ),
-                GeneratedRangeRecord(
-                    start = PositionRecord(line = 0u, column = 16u),
-                    end = PositionRecord(line = 0u, column = 34u),
-                    definition = expectedOriginalScopes[0],
-                    stackFrameType = StackFrameType.NONE,
-                    bindings = [
-                        [BindingRecord(from = PositionRecord(line = 0u, column = 16u), binding = "\"module_constant\"")],
-                        [BindingRecord(from = PositionRecord(line = 0u, column = 16u), binding = null)],
-                    ],
-                    callSite = null,
-                    children = [GeneratedRangeRecord(
+                    ),
+                    GeneratedRangeRecord(
                         start = PositionRecord(line = 0u, column = 16u),
                         end = PositionRecord(line = 0u, column = 34u),
-                        definition = expectedOriginalScopes[1].children[1],
+                        definition = expectedOriginalScopesModule[0],
                         stackFrameType = StackFrameType.NONE,
                         bindings = [
-                            [BindingRecord(from = PositionRecord(line = 0u, column = 16u), binding = "null")],
+                            [BindingRecord(from = PositionRecord(line = 0u, column = 16u), binding = "\"module_constant\"")],
+                            [BindingRecord(from = PositionRecord(line = 0u, column = 16u), binding = null)],
                         ],
-                        callSite = GeneratedRangeCallSiteRecord(sourceIndex = 1u, line = 11u, column = 0u),
+                        callSite = null,
                         children = [GeneratedRangeRecord(
                             start = PositionRecord(line = 0u, column = 16u),
                             end = PositionRecord(line = 0u, column = 34u),
-                            definition = expectedOriginalScopes[1].children[0],
+                            definition = expectedOriginalScopesInlineAcrossModules[0].children[1],
                             stackFrameType = StackFrameType.NONE,
                             bindings = [
                                 [BindingRecord(from = PositionRecord(line = 0u, column = 16u), binding = "null")],
                             ],
-                            callSite = GeneratedRangeCallSiteRecord(sourceIndex = 1u, line = 7u, column = 2u),
+                            callSite = GeneratedRangeCallSiteRecord(source = sources[1], line = 11u, column = 0u),
                             children = [GeneratedRangeRecord(
                                 start = PositionRecord(line = 0u, column = 16u),
                                 end = PositionRecord(line = 0u, column = 34u),
-                                definition = expectedOriginalScopes[0].children[0],
+                                definition = expectedOriginalScopesInlineAcrossModules[0].children[0],
                                 stackFrameType = StackFrameType.NONE,
                                 bindings = [
                                     [BindingRecord(from = PositionRecord(line = 0u, column = 16u), binding = "null")],
                                 ],
-                                callSite = GeneratedRangeCallSiteRecord(sourceIndex = 1u, line = 3u, column = 2u),
-                                children = [],
+                                callSite = GeneratedRangeCallSiteRecord(source = sources[1], line = 7u, column = 2u),
+                                children = [GeneratedRangeRecord(
+                                    start = PositionRecord(line = 0u, column = 16u),
+                                    end = PositionRecord(line = 0u, column = 34u),
+                                    definition = expectedOriginalScopesModule[0].children[0],
+                                    stackFrameType = StackFrameType.NONE,
+                                    bindings = [
+                                        [BindingRecord(from = PositionRecord(line = 0u, column = 16u), binding = "null")],
+                                    ],
+                                    callSite = GeneratedRangeCallSiteRecord(source = sources[1], line = 3u, column = 2u),
+                                    children = [],
+                                )],
                             )],
                         )],
-                    )],
-                ),
-            ],
-        )]
+                    ),
+                ],
+            )]
+        }
 
         val scopeNames = [
             "module", "MODULE_CONSTANT", "Logger", "log", "function", "x", "inner", "outer", "\"module_constant\"", "42", "null",
         ]
 
-        testDecoder(encodedScopes, expectedOriginalScopes, expectedGeneratedRanges, scopeNames)
+        testDecoder(
+            encodedScopesPerSource,
+            encodedRanges,
+            [expectedOriginalScopesModule, expectedOriginalScopesInlineAcrossModules],
+            scopeNames,
+            expectedGeneratedRanges,
+        )
     }
 
     /*
@@ -719,8 +759,8 @@ class JsSourcemapScopesDecoderSuccessTest {
     */
     @Test
     fun inlineIntoFunctionTest() {
-        val encodedScopes = "BCAAA,DCCCC,BHCQEK,DE,CCB,BHCSCA,DA,CCB,BHCSCA,DAC,BCDSG,CCD,CBB,CDM," +
-                "ECAA,GKAAL,EGNG,GMN,EC5BD,GM,IAOE,ECAD,GM,IAHC,FO,FA,FB,FO"
+        val encodedScopes = "BCAAA,DCCCC,BHCQEK,DE,CCB,BHCSCA,DA,CCB,BHCSCA,DAC,BCDSG,CCD,CBB,CDM"
+        val encodedRanges = "ECAAA,GKAAL,EGNAG,GMN,EC5BAD,GM,IAOE,ECAAD,GM,IAHC,FO,FA,FB,FO"
 
         val expectedOriginalScopes = [OriginalScopeRecord(
             start = PositionRecord(line = 0u, column = 0u),
@@ -768,56 +808,58 @@ class JsSourcemapScopesDecoderSuccessTest {
             isStackFrame = false,
         )]
 
-        val expectedGeneratedRanges = [GeneratedRangeRecord(
-            start = PositionRecord(line = 0u, column = 0u),
-            end = PositionRecord(line = 0u, column = 99u),
-            definition = expectedOriginalScopes[0],
-            stackFrameType = StackFrameType.NONE,
-            bindings = [
-                [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "0.5")],
-                [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
-                [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
-                [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "a")],
-            ],
-            callSite = null,
-            children = [GeneratedRangeRecord(
-                start = PositionRecord(line = 0u, column = 13u),
-                end = PositionRecord(line = 0u, column = 85u),
-                definition = expectedOriginalScopes[0].children[2],
-                stackFrameType = StackFrameType.ORIGINAL,
+        val expectedGeneratedRanges = { source: DecodedSourceRecord ->
+            [GeneratedRangeRecord(
+                start = PositionRecord(line = 0u, column = 0u),
+                end = PositionRecord(line = 0u, column = 99u),
+                definition = expectedOriginalScopes[0],
+                stackFrameType = StackFrameType.NONE,
                 bindings = [
-                    [BindingRecord(from = PositionRecord(line = 0u, column = 13u), binding = "c")],
-                    [BindingRecord(from = PositionRecord(line = 0u, column = 13u), binding = "b")],
+                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "0.5")],
+                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
+                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
+                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "a")],
                 ],
                 callSite = null,
                 children = [GeneratedRangeRecord(
-                    start = PositionRecord(line = 0u, column = 70u),
-                    end = PositionRecord(line = 0u, column = 84u),
-                    definition = expectedOriginalScopes[0].children[1],
-                    stackFrameType = StackFrameType.NONE,
+                    start = PositionRecord(line = 0u, column = 13u),
+                    end = PositionRecord(line = 0u, column = 85u),
+                    definition = expectedOriginalScopes[0].children[2],
+                    stackFrameType = StackFrameType.ORIGINAL,
                     bindings = [
-                        [BindingRecord(from = PositionRecord(line = 0u, column = 70u), binding = "c")],
+                        [BindingRecord(from = PositionRecord(line = 0u, column = 13u), binding = "c")],
+                        [BindingRecord(from = PositionRecord(line = 0u, column = 13u), binding = "b")],
                     ],
-                    callSite = GeneratedRangeCallSiteRecord(sourceIndex = 0u, line = 14u, column = 4u),
+                    callSite = null,
                     children = [GeneratedRangeRecord(
                         start = PositionRecord(line = 0u, column = 70u),
                         end = PositionRecord(line = 0u, column = 84u),
-                        definition = expectedOriginalScopes[0].children[0],
+                        definition = expectedOriginalScopes[0].children[1],
                         stackFrameType = StackFrameType.NONE,
                         bindings = [
                             [BindingRecord(from = PositionRecord(line = 0u, column = 70u), binding = "c")],
                         ],
-                        callSite = GeneratedRangeCallSiteRecord(sourceIndex = 0u, line = 7u, column = 2u),
-                        children = [],
+                        callSite = GeneratedRangeCallSiteRecord(source = source, line = 14u, column = 4u),
+                        children = [GeneratedRangeRecord(
+                            start = PositionRecord(line = 0u, column = 70u),
+                            end = PositionRecord(line = 0u, column = 84u),
+                            definition = expectedOriginalScopes[0].children[0],
+                            stackFrameType = StackFrameType.NONE,
+                            bindings = [
+                                [BindingRecord(from = PositionRecord(line = 0u, column = 70u), binding = "c")],
+                            ],
+                            callSite = GeneratedRangeCallSiteRecord(source = source, line = 7u, column = 2u),
+                            children = [],
+                        )],
                     )],
                 )],
-            )],
-        )]
+            )]
+        }
 
         val scopeNames =
             ["module", "CALL_CHANCE", "log", "inner", "outer", "function", "x", "shouldCall", "block", "0.5", "a", "c", "b"]
 
-        testDecoder(encodedScopes, expectedOriginalScopes, expectedGeneratedRanges, scopeNames)
+        testDecoder(encodedScopes, encodedRanges, expectedOriginalScopes, scopeNames, expectedGeneratedRanges)
     }
 
     /*
@@ -842,7 +884,8 @@ class JsSourcemapScopesDecoderSuccessTest {
     */
     @Test
     fun inlinedDefaultParameterTest() {
-        val encodedScopes = "BCAAA,DCC,BHCKEG,DEC,BDAYAG,DJ,CEB,CAA,CCF,ECAA,GIA,ECAC,GJA,IAIA,ECAC,GK,ECMD,GJA,FO,FBP,FA,FA"
+        val encodedScopes = "BCAAA,DCC,BHCKEG,DEC,BDAYAG,DJ,CEB,CAA,CCF"
+        val encodedRanges = "ECAAA,GIA,ECAAC,GJA,IAIA,ECAAC,GK,ECMAD,GJA,FO,FBP,FA,FA"
 
         val expectedOriginalScopes = [OriginalScopeRecord(
             start = PositionRecord(line = 0u, column = 0u),
@@ -871,54 +914,56 @@ class JsSourcemapScopesDecoderSuccessTest {
             isStackFrame = false,
         )]
 
-        val expectedGeneratedRanges = [GeneratedRangeRecord(
-            start = PositionRecord(line = 0u, column = 0u),
-            end = PositionRecord(line = 1u, column = 15u),
-            definition = expectedOriginalScopes[0],
-            stackFrameType = StackFrameType.NONE,
-            bindings = [
-                [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "2")],
-                [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
-            ],
-            callSite = null,
-            children = [GeneratedRangeRecord(
+        val expectedGeneratedRanges = { source: DecodedSourceRecord ->
+            [GeneratedRangeRecord(
                 start = PositionRecord(line = 0u, column = 0u),
                 end = PositionRecord(line = 1u, column = 15u),
-                definition = expectedOriginalScopes[0].children[0],
+                definition = expectedOriginalScopes[0],
                 stackFrameType = StackFrameType.NONE,
                 bindings = [
-                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "1")],
+                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "2")],
                     [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
                 ],
-                callSite = GeneratedRangeCallSiteRecord(sourceIndex = 0u, line = 8u, column = 0u),
+                callSite = null,
                 children = [GeneratedRangeRecord(
                     start = PositionRecord(line = 0u, column = 0u),
                     end = PositionRecord(line = 1u, column = 15u),
-                    definition = expectedOriginalScopes[0].children[0].children[0],
+                    definition = expectedOriginalScopes[0].children[0],
                     stackFrameType = StackFrameType.NONE,
                     bindings = [
-                        [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "3")],
+                        [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "1")],
+                        [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
                     ],
-                    callSite = null,
+                    callSite = GeneratedRangeCallSiteRecord(source = source, line = 8u, column = 0u),
                     children = [GeneratedRangeRecord(
-                        start = PositionRecord(line = 0u, column = 12u),
-                        end = PositionRecord(line = 0u, column = 26u),
-                        definition = expectedOriginalScopes[0].children[0],
+                        start = PositionRecord(line = 0u, column = 0u),
+                        end = PositionRecord(line = 1u, column = 15u),
+                        definition = expectedOriginalScopes[0].children[0].children[0],
                         stackFrameType = StackFrameType.NONE,
                         bindings = [
-                            [BindingRecord(from = PositionRecord(line = 0u, column = 12u), binding = "1")],
-                            [BindingRecord(from = PositionRecord(line = 0u, column = 12u), binding = null)],
+                            [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "3")],
                         ],
                         callSite = null,
-                        children = [],
+                        children = [GeneratedRangeRecord(
+                            start = PositionRecord(line = 0u, column = 12u),
+                            end = PositionRecord(line = 0u, column = 26u),
+                            definition = expectedOriginalScopes[0].children[0],
+                            stackFrameType = StackFrameType.NONE,
+                            bindings = [
+                                [BindingRecord(from = PositionRecord(line = 0u, column = 12u), binding = "1")],
+                                [BindingRecord(from = PositionRecord(line = 0u, column = 12u), binding = null)],
+                            ],
+                            callSite = null,
+                            children = [],
+                        )],
                     )],
                 )],
-            )],
-        )]
+            )]
+        }
 
         val scopeNames = ["module", "n", "f", "function", "x", "y", "block", "2", "1", "3"]
 
-        testDecoder(encodedScopes, expectedOriginalScopes, expectedGeneratedRanges, scopeNames)
+        testDecoder(encodedScopes, encodedRanges, expectedOriginalScopes, scopeNames, expectedGeneratedRanges)
     }
 
     /*
@@ -941,7 +986,8 @@ class JsSourcemapScopesDecoderSuccessTest {
     */
     @Test
     fun liveRangeTest() {
-        val encodedScopes = "BCAAA,DCC,BHASCG,DE,CCB,CEH,ECAA,GAG,HBBAH,ECAC,GG,IAEB,FT,EDBAA,GH,IAGA,FT,FA"
+        val encodedScopes = "BCAAA,DCC,BHASCG,DE,CCB,CEH"
+        val encodedRanges = "ECAAA,GAG,HBBAH,ECAAC,GG,IAEB,FT,EDBAAA,GH,IAGA,FT,FA"
 
         val expectedOriginalScopes = [OriginalScopeRecord(
             start = PositionRecord(line = 0u, column = 0u),
@@ -961,49 +1007,51 @@ class JsSourcemapScopesDecoderSuccessTest {
             isStackFrame = false,
         )]
 
-        val expectedGeneratedRanges = [GeneratedRangeRecord(
-            start = PositionRecord(line = 0u, column = 0u),
-            end = PositionRecord(line = 1u, column = 19u),
-            definition = expectedOriginalScopes[0],
-            stackFrameType = StackFrameType.NONE,
-            bindings = [
-                [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
-                // A sub-range binding: `x` is available as "foo" until line 1, where it becomes "bar"
-                [
-                    BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "\"foo\""),
-                    BindingRecord(from = PositionRecord(line = 1u, column = 0u), binding = "\"bar\""),
+        val expectedGeneratedRanges = { source: DecodedSourceRecord ->
+            [GeneratedRangeRecord(
+                start = PositionRecord(line = 0u, column = 0u),
+                end = PositionRecord(line = 1u, column = 19u),
+                definition = expectedOriginalScopes[0],
+                stackFrameType = StackFrameType.NONE,
+                bindings = [
+                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
+                    // A sub-range binding: `x` is available as "foo" until line 1, where it becomes "bar"
+                    [
+                        BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "\"foo\""),
+                        BindingRecord(from = PositionRecord(line = 1u, column = 0u), binding = "\"bar\""),
+                    ],
                 ],
-            ],
-            callSite = null,
-            children = [
-                GeneratedRangeRecord(
-                    start = PositionRecord(line = 0u, column = 0u),
-                    end = PositionRecord(line = 0u, column = 19u),
-                    definition = expectedOriginalScopes[0].children[0],
-                    stackFrameType = StackFrameType.NONE,
-                    bindings = [
-                        [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "\"foo\"")],
-                    ],
-                    callSite = GeneratedRangeCallSiteRecord(sourceIndex = 0u, line = 4u, column = 1u),
-                    children = [],
-                ),
-                GeneratedRangeRecord(
-                    start = PositionRecord(line = 1u, column = 0u),
-                    end = PositionRecord(line = 1u, column = 19u),
-                    definition = expectedOriginalScopes[0].children[0],
-                    stackFrameType = StackFrameType.NONE,
-                    bindings = [
-                        [BindingRecord(from = PositionRecord(line = 1u, column = 0u), binding = "\"bar\"")],
-                    ],
-                    callSite = GeneratedRangeCallSiteRecord(sourceIndex = 0u, line = 6u, column = 0u),
-                    children = [],
-                ),
-            ],
-        )]
+                callSite = null,
+                children = [
+                    GeneratedRangeRecord(
+                        start = PositionRecord(line = 0u, column = 0u),
+                        end = PositionRecord(line = 0u, column = 19u),
+                        definition = expectedOriginalScopes[0].children[0],
+                        stackFrameType = StackFrameType.NONE,
+                        bindings = [
+                            [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "\"foo\"")],
+                        ],
+                        callSite = GeneratedRangeCallSiteRecord(source = source, line = 4u, column = 1u),
+                        children = [],
+                    ),
+                    GeneratedRangeRecord(
+                        start = PositionRecord(line = 1u, column = 0u),
+                        end = PositionRecord(line = 1u, column = 19u),
+                        definition = expectedOriginalScopes[0].children[0],
+                        stackFrameType = StackFrameType.NONE,
+                        bindings = [
+                            [BindingRecord(from = PositionRecord(line = 1u, column = 0u), binding = "\"bar\"")],
+                        ],
+                        callSite = GeneratedRangeCallSiteRecord(source = source, line = 6u, column = 0u),
+                        children = [],
+                    ),
+                ],
+            )]
+        }
 
         val scopeNames = ["module", "log", "x", "function", "msg", "\"foo\"", "\"bar\""]
 
-        testDecoder(encodedScopes, expectedOriginalScopes, expectedGeneratedRanges, scopeNames)
+        testDecoder(encodedScopes, encodedRanges, expectedOriginalScopes, scopeNames, expectedGeneratedRanges)
     }
 
     /*
@@ -1028,7 +1076,8 @@ class JsSourcemapScopesDecoderSuccessTest {
     */
     @Test
     fun moveToCallSiteTest() {
-        val encodedScopes = "BCAAA,DCC,BGAAG,DE,CCB,BGBAA,CCB,CBI,ECAA,GAD,ECAE,EHBJD,GG,FV,FCI,FA"
+        val encodedScopes = "BCAAA,DCC,BGAAG,DE,CCB,BGBAA,CCB,CBI"
+        val encodedRanges = "ECAAA,GAD,ECAAE,EHBJAD,GG,FV,FCI,FA"
 
         val expectedOriginalScopes = [OriginalScopeRecord(
             start = PositionRecord(line = 0u, column = 0u),
@@ -1059,40 +1108,42 @@ class JsSourcemapScopesDecoderSuccessTest {
             isStackFrame = false,
         )]
 
-        val expectedGeneratedRanges = [GeneratedRangeRecord(
-            start = PositionRecord(line = 0u, column = 0u),
-            end = PositionRecord(line = 3u, column = 8u),
-            definition = expectedOriginalScopes[0],
-            stackFrameType = StackFrameType.NONE,
-            bindings = [
-                [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
-                [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "outer")],
-            ],
-            callSite = null,
-            children = [GeneratedRangeRecord(
+        val expectedGeneratedRanges = { _: DecodedSourceRecord ->
+            [GeneratedRangeRecord(
                 start = PositionRecord(line = 0u, column = 0u),
                 end = PositionRecord(line = 3u, column = 8u),
-                definition = expectedOriginalScopes[0].children[1],
+                definition = expectedOriginalScopes[0],
                 stackFrameType = StackFrameType.NONE,
-                bindings = [],
+                bindings = [
+                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
+                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "outer")],
+                ],
                 callSite = null,
                 children = [GeneratedRangeRecord(
-                    start = PositionRecord(line = 1u, column = 9u),
-                    end = PositionRecord(line = 1u, column = 30u),
-                    definition = expectedOriginalScopes[0].children[0],
-                    stackFrameType = StackFrameType.ORIGINAL,
-                    bindings = [
-                        [BindingRecord(from = PositionRecord(line = 1u, column = 9u), binding = "\"moved!\"")],
-                    ],
+                    start = PositionRecord(line = 0u, column = 0u),
+                    end = PositionRecord(line = 3u, column = 8u),
+                    definition = expectedOriginalScopes[0].children[1],
+                    stackFrameType = StackFrameType.NONE,
+                    bindings = [],
                     callSite = null,
-                    children = [],
+                    children = [GeneratedRangeRecord(
+                        start = PositionRecord(line = 1u, column = 9u),
+                        end = PositionRecord(line = 1u, column = 30u),
+                        definition = expectedOriginalScopes[0].children[0],
+                        stackFrameType = StackFrameType.ORIGINAL,
+                        bindings = [
+                            [BindingRecord(from = PositionRecord(line = 1u, column = 9u), binding = "\"moved!\"")],
+                        ],
+                        callSite = null,
+                        children = [],
+                    )],
                 )],
-            )],
-        )]
+            )]
+        }
 
         val scopeNames = ["module", "inner", "outer", "function", "msg", "\"moved!\""]
 
-        testDecoder(encodedScopes, expectedOriginalScopes, expectedGeneratedRanges, scopeNames)
+        testDecoder(encodedScopes, encodedRanges, expectedOriginalScopes, scopeNames, expectedGeneratedRanges)
     }
 
     /*
@@ -1121,7 +1172,8 @@ class JsSourcemapScopesDecoderSuccessTest {
     */
     @Test
     fun outlineAndInlineTest() {
-        val encodedScopes = "BCAAA,DC,BHAPCE,BCBdC,DG,CDD,CBB,CBG,ECAA,GA,ECAC,IAGA,EObC,GF,FDB,EBB3B,FDB,FA,FA"
+        val encodedScopes = "BCAAA,DC,BHAPCE,BCBdC,DG,CDD,CBB,CBG"
+        val encodedRanges = "ECAAA,GA,ECAAC,IAGA,EObAC,GF,FDB,EBB3B,FDB,FA,FA"
 
         val expectedOriginalScopes = [OriginalScopeRecord(
             start = PositionRecord(line = 0u, column = 0u),
@@ -1149,50 +1201,52 @@ class JsSourcemapScopesDecoderSuccessTest {
             isStackFrame = false,
         )]
 
-        val expectedGeneratedRanges = [GeneratedRangeRecord(
-            start = PositionRecord(line = 0u, column = 0u),
-            end = PositionRecord(line = 7u, column = 1u),
-            definition = expectedOriginalScopes[0],
-            stackFrameType = StackFrameType.NONE,
-            bindings = [
-                [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
-            ],
-            callSite = null,
-            children = [GeneratedRangeRecord(
+        val expectedGeneratedRanges = { source: DecodedSourceRecord ->
+            [GeneratedRangeRecord(
                 start = PositionRecord(line = 0u, column = 0u),
                 end = PositionRecord(line = 7u, column = 1u),
-                definition = expectedOriginalScopes[0].children[0],
+                definition = expectedOriginalScopes[0],
                 stackFrameType = StackFrameType.NONE,
-                bindings = [],
-                callSite = GeneratedRangeCallSiteRecord(sourceIndex = 0u, line = 6u, column = 0u),
-                children = [
-                    GeneratedRangeRecord(
-                        start = PositionRecord(line = 0u, column = 27u),
-                        end = PositionRecord(line = 3u, column = 1u),
-                        definition = expectedOriginalScopes[0].children[0].children[0],
-                        stackFrameType = StackFrameType.HIDDEN,
-                        bindings = [
-                            [BindingRecord(from = PositionRecord(line = 0u, column = 27u), binding = "x")],
-                        ],
-                        callSite = null,
-                        children = [],
-                    ),
-                    GeneratedRangeRecord(
-                        start = PositionRecord(line = 4u, column = 55u),
-                        end = PositionRecord(line = 7u, column = 1u),
-                        definition = null,
-                        stackFrameType = StackFrameType.NONE,
-                        bindings = [],
-                        callSite = null,
-                        children = [],
-                    ),
+                bindings = [
+                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
                 ],
-            )],
-        )]
+                callSite = null,
+                children = [GeneratedRangeRecord(
+                    start = PositionRecord(line = 0u, column = 0u),
+                    end = PositionRecord(line = 7u, column = 1u),
+                    definition = expectedOriginalScopes[0].children[0],
+                    stackFrameType = StackFrameType.NONE,
+                    bindings = [],
+                    callSite = GeneratedRangeCallSiteRecord(source = source, line = 6u, column = 0u),
+                    children = [
+                        GeneratedRangeRecord(
+                            start = PositionRecord(line = 0u, column = 27u),
+                            end = PositionRecord(line = 3u, column = 1u),
+                            definition = expectedOriginalScopes[0].children[0].children[0],
+                            stackFrameType = StackFrameType.HIDDEN,
+                            bindings = [
+                                [BindingRecord(from = PositionRecord(line = 0u, column = 27u), binding = "x")],
+                            ],
+                            callSite = null,
+                            children = [],
+                        ),
+                        GeneratedRangeRecord(
+                            start = PositionRecord(line = 4u, column = 55u),
+                            end = PositionRecord(line = 7u, column = 1u),
+                            definition = null,
+                            stackFrameType = StackFrameType.NONE,
+                            bindings = [],
+                            callSite = null,
+                            children = [],
+                        ),
+                    ],
+                )],
+            )]
+        }
 
         val scopeNames = ["module", "foo", "function", "for-loop", "x"]
 
-        testDecoder(encodedScopes, expectedOriginalScopes, expectedGeneratedRanges, scopeNames)
+        testDecoder(encodedScopes, encodedRanges, expectedOriginalScopes, scopeNames, expectedGeneratedRanges)
     }
 
     /*
@@ -1244,9 +1298,9 @@ class JsSourcemapScopesDecoderSuccessTest {
     */
     @Test
     fun outlineAndInline2Test() {
-        val encodedScopes = "BCAAA,DCC,BHBKGI,DGC,CDD,BHDHDA,DC,CFB,CAA," +
-                "ECAA,GAD,EFBN,FZ,EPBKC,GGH,FjB,EPBRA,GGJ,FmB,EPBHA,GGH,F0C,EPBHA,GGJ,F6B," +
-                "EHCNC,GI,EDCED,GKL,IAJE,FN,EDBEA,GML,IAKE,FL,EDBPA,GNO,IALL,FO,FBB," +
+        val encodedScopes = "BCAAA,DCC,BHBKGI,DGC,CDD,BHDHDA,DC,CFB,CAA"
+        val encodedRanges = "ECAAA,GAD,EFBN,FZ,EPBKAC,GGH,FjB,EPBRAA,GGJ,FmB,EPBHAA,GGH,F0C,EPBHAA,GGJ,F6B," +
+                "EHCNAC,GI,EDCEAD,GKL,IAJE,FN,EDBEAA,GML,IAKE,FL,EDBPAA,GNO,IALL,FO,FBB," +
                 "EFBS,FEB,EFBa,FCB,EFBY,FCB,FBH"
 
         val expectedOriginalScopes = [OriginalScopeRecord(
@@ -1278,166 +1332,168 @@ class JsSourcemapScopesDecoderSuccessTest {
             isStackFrame = false,
         )]
 
-        val expectedGeneratedRanges = [GeneratedRangeRecord(
-            start = PositionRecord(line = 0u, column = 0u),
-            end = PositionRecord(line = 24u, column = 7u),
-            definition = expectedOriginalScopes[0],
-            stackFrameType = StackFrameType.NONE,
-            bindings = [
-                [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
-                [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "main")],
-            ],
-            callSite = null,
-            children = [
-                // constructor(type)
-                GeneratedRangeRecord(
-                    start = PositionRecord(line = 1u, column = 13u),
-                    end = PositionRecord(line = 1u, column = 38u),
-                    definition = null,
-                    stackFrameType = StackFrameType.ORIGINAL,
-                    bindings = [],
-                    callSite = null,
-                    children = [],
-                ),
-                // foo$body(a, b)
-                GeneratedRangeRecord(
-                    start = PositionRecord(line = 2u, column = 10u),
-                    end = PositionRecord(line = 2u, column = 45u),
-                    definition = expectedOriginalScopes[0].children[0],
-                    stackFrameType = StackFrameType.HIDDEN,
-                    bindings = [
-                        [BindingRecord(from = PositionRecord(line = 2u, column = 10u), binding = "a")],
-                        [BindingRecord(from = PositionRecord(line = 2u, column = 10u), binding = "b")],
-                    ],
-                    callSite = null,
-                    children = [],
-                ),
-                // foo$1$unchecked(a)
-                GeneratedRangeRecord(
-                    start = PositionRecord(line = 3u, column = 17u),
-                    end = PositionRecord(line = 3u, column = 55u),
-                    definition = expectedOriginalScopes[0].children[0],
-                    stackFrameType = StackFrameType.HIDDEN,
-                    bindings = [
-                        [BindingRecord(from = PositionRecord(line = 3u, column = 17u), binding = "a")],
-                        [BindingRecord(from = PositionRecord(line = 3u, column = 17u), binding = "null")],
-                    ],
-                    callSite = null,
-                    children = [],
-                ),
-                // foo$2(a, b)
-                GeneratedRangeRecord(
-                    start = PositionRecord(line = 4u, column = 7u),
-                    end = PositionRecord(line = 4u, column = 91u),
-                    definition = expectedOriginalScopes[0].children[0],
-                    stackFrameType = StackFrameType.HIDDEN,
-                    bindings = [
-                        [BindingRecord(from = PositionRecord(line = 4u, column = 7u), binding = "a")],
-                        [BindingRecord(from = PositionRecord(line = 4u, column = 7u), binding = "b")],
-                    ],
-                    callSite = null,
-                    children = [],
-                ),
-                // foo$1(a)
-                GeneratedRangeRecord(
-                    start = PositionRecord(line = 5u, column = 7u),
-                    end = PositionRecord(line = 5u, column = 65u),
-                    definition = expectedOriginalScopes[0].children[0],
-                    stackFrameType = StackFrameType.HIDDEN,
-                    bindings = [
-                        [BindingRecord(from = PositionRecord(line = 5u, column = 7u), binding = "a")],
-                        [BindingRecord(from = PositionRecord(line = 5u, column = 7u), binding = "null")],
-                    ],
-                    callSite = null,
-                    children = [],
-                ),
-                // function main()
-                GeneratedRangeRecord(
-                    start = PositionRecord(line = 7u, column = 13u),
-                    end = PositionRecord(line = 12u, column = 1u),
-                    definition = expectedOriginalScopes[0].children[1],
-                    stackFrameType = StackFrameType.ORIGINAL,
-                    bindings = [
-                        [BindingRecord(from = PositionRecord(line = 7u, column = 13u), binding = "x")],
-                    ],
-                    callSite = null,
-                    children = [
-                        GeneratedRangeRecord(
-                            start = PositionRecord(line = 9u, column = 4u),
-                            end = PositionRecord(line = 9u, column = 17u),
-                            definition = expectedOriginalScopes[0].children[0],
-                            stackFrameType = StackFrameType.NONE,
-                            bindings = [
-                                [BindingRecord(from = PositionRecord(line = 9u, column = 4u), binding = "'abc'")],
-                                [BindingRecord(from = PositionRecord(line = 9u, column = 4u), binding = "undefined")],
-                            ],
-                            callSite = GeneratedRangeCallSiteRecord(sourceIndex = 0u, line = 9u, column = 4u),
-                            children = [],
-                        ),
-                        GeneratedRangeRecord(
-                            start = PositionRecord(line = 10u, column = 4u),
-                            end = PositionRecord(line = 10u, column = 15u),
-                            definition = expectedOriginalScopes[0].children[0],
-                            stackFrameType = StackFrameType.NONE,
-                            bindings = [
-                                [BindingRecord(from = PositionRecord(line = 10u, column = 4u), binding = "123")],
-                                [BindingRecord(from = PositionRecord(line = 10u, column = 4u), binding = "undefined")],
-                            ],
-                            callSite = GeneratedRangeCallSiteRecord(sourceIndex = 0u, line = 10u, column = 4u),
-                            children = [],
-                        ),
-                        GeneratedRangeRecord(
-                            start = PositionRecord(line = 11u, column = 15u),
-                            end = PositionRecord(line = 11u, column = 29u),
-                            definition = expectedOriginalScopes[0].children[0],
-                            stackFrameType = StackFrameType.NONE,
-                            bindings = [
-                                [BindingRecord(from = PositionRecord(line = 11u, column = 15u), binding = "1")],
-                                [BindingRecord(from = PositionRecord(line = 11u, column = 15u), binding = "2")],
-                            ],
-                            callSite = GeneratedRangeCallSiteRecord(sourceIndex = 0u, line = 11u, column = 11u),
-                            children = [],
-                        ),
-                    ],
-                ),
-                // function checkType(value, type)
-                GeneratedRangeRecord(
-                    start = PositionRecord(line = 13u, column = 18u),
-                    end = PositionRecord(line = 17u, column = 1u),
-                    definition = null,
-                    stackFrameType = StackFrameType.ORIGINAL,
-                    bindings = [],
-                    callSite = null,
-                    children = [],
-                ),
-                // function checkTypeNullable(value, type)
-                GeneratedRangeRecord(
-                    start = PositionRecord(line = 18u, column = 26u),
-                    end = PositionRecord(line = 20u, column = 1u),
-                    definition = null,
-                    stackFrameType = StackFrameType.ORIGINAL,
-                    bindings = [],
-                    callSite = null,
-                    children = [],
-                ),
-                // function throwExpression(str)
-                GeneratedRangeRecord(
-                    start = PositionRecord(line = 21u, column = 24u),
-                    end = PositionRecord(line = 23u, column = 1u),
-                    definition = null,
-                    stackFrameType = StackFrameType.ORIGINAL,
-                    bindings = [],
-                    callSite = null,
-                    children = [],
-                ),
-            ],
-        )]
+        val expectedGeneratedRanges = { source: DecodedSourceRecord ->
+            [GeneratedRangeRecord(
+                start = PositionRecord(line = 0u, column = 0u),
+                end = PositionRecord(line = 24u, column = 7u),
+                definition = expectedOriginalScopes[0],
+                stackFrameType = StackFrameType.NONE,
+                bindings = [
+                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
+                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "main")],
+                ],
+                callSite = null,
+                children = [
+                    // constructor(type)
+                    GeneratedRangeRecord(
+                        start = PositionRecord(line = 1u, column = 13u),
+                        end = PositionRecord(line = 1u, column = 38u),
+                        definition = null,
+                        stackFrameType = StackFrameType.ORIGINAL,
+                        bindings = [],
+                        callSite = null,
+                        children = [],
+                    ),
+                    // foo$body(a, b)
+                    GeneratedRangeRecord(
+                        start = PositionRecord(line = 2u, column = 10u),
+                        end = PositionRecord(line = 2u, column = 45u),
+                        definition = expectedOriginalScopes[0].children[0],
+                        stackFrameType = StackFrameType.HIDDEN,
+                        bindings = [
+                            [BindingRecord(from = PositionRecord(line = 2u, column = 10u), binding = "a")],
+                            [BindingRecord(from = PositionRecord(line = 2u, column = 10u), binding = "b")],
+                        ],
+                        callSite = null,
+                        children = [],
+                    ),
+                    // foo$1$unchecked(a)
+                    GeneratedRangeRecord(
+                        start = PositionRecord(line = 3u, column = 17u),
+                        end = PositionRecord(line = 3u, column = 55u),
+                        definition = expectedOriginalScopes[0].children[0],
+                        stackFrameType = StackFrameType.HIDDEN,
+                        bindings = [
+                            [BindingRecord(from = PositionRecord(line = 3u, column = 17u), binding = "a")],
+                            [BindingRecord(from = PositionRecord(line = 3u, column = 17u), binding = "null")],
+                        ],
+                        callSite = null,
+                        children = [],
+                    ),
+                    // foo$2(a, b)
+                    GeneratedRangeRecord(
+                        start = PositionRecord(line = 4u, column = 7u),
+                        end = PositionRecord(line = 4u, column = 91u),
+                        definition = expectedOriginalScopes[0].children[0],
+                        stackFrameType = StackFrameType.HIDDEN,
+                        bindings = [
+                            [BindingRecord(from = PositionRecord(line = 4u, column = 7u), binding = "a")],
+                            [BindingRecord(from = PositionRecord(line = 4u, column = 7u), binding = "b")],
+                        ],
+                        callSite = null,
+                        children = [],
+                    ),
+                    // foo$1(a)
+                    GeneratedRangeRecord(
+                        start = PositionRecord(line = 5u, column = 7u),
+                        end = PositionRecord(line = 5u, column = 65u),
+                        definition = expectedOriginalScopes[0].children[0],
+                        stackFrameType = StackFrameType.HIDDEN,
+                        bindings = [
+                            [BindingRecord(from = PositionRecord(line = 5u, column = 7u), binding = "a")],
+                            [BindingRecord(from = PositionRecord(line = 5u, column = 7u), binding = "null")],
+                        ],
+                        callSite = null,
+                        children = [],
+                    ),
+                    // function main()
+                    GeneratedRangeRecord(
+                        start = PositionRecord(line = 7u, column = 13u),
+                        end = PositionRecord(line = 12u, column = 1u),
+                        definition = expectedOriginalScopes[0].children[1],
+                        stackFrameType = StackFrameType.ORIGINAL,
+                        bindings = [
+                            [BindingRecord(from = PositionRecord(line = 7u, column = 13u), binding = "x")],
+                        ],
+                        callSite = null,
+                        children = [
+                            GeneratedRangeRecord(
+                                start = PositionRecord(line = 9u, column = 4u),
+                                end = PositionRecord(line = 9u, column = 17u),
+                                definition = expectedOriginalScopes[0].children[0],
+                                stackFrameType = StackFrameType.NONE,
+                                bindings = [
+                                    [BindingRecord(from = PositionRecord(line = 9u, column = 4u), binding = "'abc'")],
+                                    [BindingRecord(from = PositionRecord(line = 9u, column = 4u), binding = "undefined")],
+                                ],
+                                callSite = GeneratedRangeCallSiteRecord(source = source, line = 9u, column = 4u),
+                                children = [],
+                            ),
+                            GeneratedRangeRecord(
+                                start = PositionRecord(line = 10u, column = 4u),
+                                end = PositionRecord(line = 10u, column = 15u),
+                                definition = expectedOriginalScopes[0].children[0],
+                                stackFrameType = StackFrameType.NONE,
+                                bindings = [
+                                    [BindingRecord(from = PositionRecord(line = 10u, column = 4u), binding = "123")],
+                                    [BindingRecord(from = PositionRecord(line = 10u, column = 4u), binding = "undefined")],
+                                ],
+                                callSite = GeneratedRangeCallSiteRecord(source = source, line = 10u, column = 4u),
+                                children = [],
+                            ),
+                            GeneratedRangeRecord(
+                                start = PositionRecord(line = 11u, column = 15u),
+                                end = PositionRecord(line = 11u, column = 29u),
+                                definition = expectedOriginalScopes[0].children[0],
+                                stackFrameType = StackFrameType.NONE,
+                                bindings = [
+                                    [BindingRecord(from = PositionRecord(line = 11u, column = 15u), binding = "1")],
+                                    [BindingRecord(from = PositionRecord(line = 11u, column = 15u), binding = "2")],
+                                ],
+                                callSite = GeneratedRangeCallSiteRecord(source = source, line = 11u, column = 11u),
+                                children = [],
+                            ),
+                        ],
+                    ),
+                    // function checkType(value, type)
+                    GeneratedRangeRecord(
+                        start = PositionRecord(line = 13u, column = 18u),
+                        end = PositionRecord(line = 17u, column = 1u),
+                        definition = null,
+                        stackFrameType = StackFrameType.ORIGINAL,
+                        bindings = [],
+                        callSite = null,
+                        children = [],
+                    ),
+                    // function checkTypeNullable(value, type)
+                    GeneratedRangeRecord(
+                        start = PositionRecord(line = 18u, column = 26u),
+                        end = PositionRecord(line = 20u, column = 1u),
+                        definition = null,
+                        stackFrameType = StackFrameType.ORIGINAL,
+                        bindings = [],
+                        callSite = null,
+                        children = [],
+                    ),
+                    // function throwExpression(str)
+                    GeneratedRangeRecord(
+                        start = PositionRecord(line = 21u, column = 24u),
+                        end = PositionRecord(line = 23u, column = 1u),
+                        definition = null,
+                        stackFrameType = StackFrameType.ORIGINAL,
+                        bindings = [],
+                        callSite = null,
+                        children = [],
+                    ),
+                ],
+            )]
+        }
 
         val scopeNames = [
             "module", "X", "main", "foo", "function", "a", "b", "x", "null", "'abc'", "undefined", "123", "1", "2",
         ]
 
-        testDecoder(encodedScopes, expectedOriginalScopes, expectedGeneratedRanges, scopeNames)
+        testDecoder(encodedScopes, encodedRanges, expectedOriginalScopes, scopeNames, expectedGeneratedRanges)
     }
 
     /*
@@ -1456,11 +1512,11 @@ class JsSourcemapScopesDecoderSuccessTest {
     */
     @Test
     fun outlineAsyncAwaitTest() {
-        val encodedScopes = "BCAAA,DC,BHAUCE,CCB,CBF," +
-                "ECAA,GC," +
+        val encodedScopes = "BCAAA,DC,BHAUCE,CCB,CBF"
+        val encodedRanges = "ECAAA,GC," +
                 "ENB5C,ENBa,EM/B,FT,FE,ENB/B,ENBiB,FhC,ENBhB,FlC,ENBf,F3C,FCF,FBB," +
                 "ENBpC,ENBpB,FqB,ENBrE,FQ,ENBV,EMW,FY,FD,ENBW,FVF,FBB," +
-                "EHCOC,ENB3B,ENBvB,FFJ,FBF,FBB,FBF"
+                "EHCOAC,ENB3B,ENBvB,FFJ,FBF,FBB,FBF"
 
         val expectedOriginalScopes = [OriginalScopeRecord(
             start = PositionRecord(line = 0u, column = 0u),
@@ -1480,168 +1536,170 @@ class JsSourcemapScopesDecoderSuccessTest {
             isStackFrame = false,
         )]
 
-        val expectedGeneratedRanges = [GeneratedRangeRecord(
-            start = PositionRecord(line = 0u, column = 0u),
-            end = PositionRecord(line = 48u, column = 5u),
-            definition = expectedOriginalScopes[0],
-            stackFrameType = StackFrameType.NONE,
-            bindings = [
-                [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "fn")],
-            ],
-            callSite = null,
-            children = [
-                // The `__awaiter` helper
-                GeneratedRangeRecord(
-                    start = PositionRecord(line = 1u, column = 89u),
-                    end = PositionRecord(line = 9u, column = 1u),
-                    definition = null,
-                    stackFrameType = StackFrameType.HIDDEN,
-                    bindings = [],
-                    callSite = null,
-                    children = [
-                        GeneratedRangeRecord(
-                            start = PositionRecord(line = 2u, column = 26u),
-                            end = PositionRecord(line = 2u, column = 112u),
-                            definition = null,
-                            stackFrameType = StackFrameType.HIDDEN,
-                            bindings = [],
-                            callSite = null,
-                            children = [GeneratedRangeRecord(
-                                start = PositionRecord(line = 2u, column = 89u),
-                                end = PositionRecord(line = 2u, column = 108u),
-                                definition = null,
-                                stackFrameType = StackFrameType.HIDDEN,
-                                bindings = [],
-                                callSite = null,
-                                children = [],
-                            )],
-                        ),
-                        GeneratedRangeRecord(
-                            start = PositionRecord(line = 3u, column = 63u),
-                            end = PositionRecord(line = 8u, column = 5u),
-                            definition = null,
-                            stackFrameType = StackFrameType.HIDDEN,
-                            bindings = [],
-                            callSite = null,
-                            children = [
-                                GeneratedRangeRecord(
-                                    start = PositionRecord(line = 4u, column = 34u),
-                                    end = PositionRecord(line = 4u, column = 99u),
-                                    definition = null,
-                                    stackFrameType = StackFrameType.HIDDEN,
-                                    bindings = [],
-                                    callSite = null,
-                                    children = [],
-                                ),
-                                GeneratedRangeRecord(
-                                    start = PositionRecord(line = 5u, column = 33u),
-                                    end = PositionRecord(line = 5u, column = 102u),
-                                    definition = null,
-                                    stackFrameType = StackFrameType.HIDDEN,
-                                    bindings = [],
-                                    callSite = null,
-                                    children = [],
-                                ),
-                                GeneratedRangeRecord(
-                                    start = PositionRecord(line = 6u, column = 31u),
-                                    end = PositionRecord(line = 6u, column = 118u),
-                                    definition = null,
-                                    stackFrameType = StackFrameType.HIDDEN,
-                                    bindings = [],
-                                    callSite = null,
-                                    children = [],
-                                ),
-                            ],
-                        ),
-                    ],
-                ),
-                // The `__generator` helper
-                GeneratedRangeRecord(
-                    start = PositionRecord(line = 10u, column = 73u),
-                    end = PositionRecord(line = 36u, column = 1u),
-                    definition = null,
-                    stackFrameType = StackFrameType.HIDDEN,
-                    bindings = [],
-                    callSite = null,
-                    children = [
-                        GeneratedRangeRecord(
-                            start = PositionRecord(line = 11u, column = 41u),
-                            end = PositionRecord(line = 11u, column = 83u),
-                            definition = null,
-                            stackFrameType = StackFrameType.HIDDEN,
-                            bindings = [],
-                            callSite = null,
-                            children = [],
-                        ),
-                        GeneratedRangeRecord(
-                            start = PositionRecord(line = 12u, column = 139u),
-                            end = PositionRecord(line = 12u, column = 155u),
-                            definition = null,
-                            stackFrameType = StackFrameType.HIDDEN,
-                            bindings = [],
-                            callSite = null,
-                            children = [],
-                        ),
-                        GeneratedRangeRecord(
-                            start = PositionRecord(line = 13u, column = 21u),
-                            end = PositionRecord(line = 13u, column = 70u),
-                            definition = null,
-                            stackFrameType = StackFrameType.HIDDEN,
-                            bindings = [],
-                            callSite = null,
-                            children = [GeneratedRangeRecord(
-                                start = PositionRecord(line = 13u, column = 43u),
-                                end = PositionRecord(line = 13u, column = 67u),
-                                definition = null,
-                                stackFrameType = StackFrameType.HIDDEN,
-                                bindings = [],
-                                callSite = null,
-                                children = [],
-                            )],
-                        ),
-                        GeneratedRangeRecord(
-                            start = PositionRecord(line = 14u, column = 22u),
-                            end = PositionRecord(line = 35u, column = 5u),
-                            definition = null,
-                            stackFrameType = StackFrameType.HIDDEN,
-                            bindings = [],
-                            callSite = null,
-                            children = [],
-                        ),
-                    ],
-                ),
-                // `function fn()` itself
-                GeneratedRangeRecord(
-                    start = PositionRecord(line = 38u, column = 14u),
-                    end = PositionRecord(line = 47u, column = 1u),
-                    definition = expectedOriginalScopes[0].children[0],
-                    stackFrameType = StackFrameType.ORIGINAL,
-                    bindings = [],
-                    callSite = null,
-                    children = [GeneratedRangeRecord(
-                        start = PositionRecord(line = 39u, column = 55u),
-                        end = PositionRecord(line = 46u, column = 5u),
+        val expectedGeneratedRanges = { _: DecodedSourceRecord ->
+            [GeneratedRangeRecord(
+                start = PositionRecord(line = 0u, column = 0u),
+                end = PositionRecord(line = 48u, column = 5u),
+                definition = expectedOriginalScopes[0],
+                stackFrameType = StackFrameType.NONE,
+                bindings = [
+                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "fn")],
+                ],
+                callSite = null,
+                children = [
+                    // The `__awaiter` helper
+                    GeneratedRangeRecord(
+                        start = PositionRecord(line = 1u, column = 89u),
+                        end = PositionRecord(line = 9u, column = 1u),
                         definition = null,
                         stackFrameType = StackFrameType.HIDDEN,
                         bindings = [],
                         callSite = null,
+                        children = [
+                            GeneratedRangeRecord(
+                                start = PositionRecord(line = 2u, column = 26u),
+                                end = PositionRecord(line = 2u, column = 112u),
+                                definition = null,
+                                stackFrameType = StackFrameType.HIDDEN,
+                                bindings = [],
+                                callSite = null,
+                                children = [GeneratedRangeRecord(
+                                    start = PositionRecord(line = 2u, column = 89u),
+                                    end = PositionRecord(line = 2u, column = 108u),
+                                    definition = null,
+                                    stackFrameType = StackFrameType.HIDDEN,
+                                    bindings = [],
+                                    callSite = null,
+                                    children = [],
+                                )],
+                            ),
+                            GeneratedRangeRecord(
+                                start = PositionRecord(line = 3u, column = 63u),
+                                end = PositionRecord(line = 8u, column = 5u),
+                                definition = null,
+                                stackFrameType = StackFrameType.HIDDEN,
+                                bindings = [],
+                                callSite = null,
+                                children = [
+                                    GeneratedRangeRecord(
+                                        start = PositionRecord(line = 4u, column = 34u),
+                                        end = PositionRecord(line = 4u, column = 99u),
+                                        definition = null,
+                                        stackFrameType = StackFrameType.HIDDEN,
+                                        bindings = [],
+                                        callSite = null,
+                                        children = [],
+                                    ),
+                                    GeneratedRangeRecord(
+                                        start = PositionRecord(line = 5u, column = 33u),
+                                        end = PositionRecord(line = 5u, column = 102u),
+                                        definition = null,
+                                        stackFrameType = StackFrameType.HIDDEN,
+                                        bindings = [],
+                                        callSite = null,
+                                        children = [],
+                                    ),
+                                    GeneratedRangeRecord(
+                                        start = PositionRecord(line = 6u, column = 31u),
+                                        end = PositionRecord(line = 6u, column = 118u),
+                                        definition = null,
+                                        stackFrameType = StackFrameType.HIDDEN,
+                                        bindings = [],
+                                        callSite = null,
+                                        children = [],
+                                    ),
+                                ],
+                            ),
+                        ],
+                    ),
+                    // The `__generator` helper
+                    GeneratedRangeRecord(
+                        start = PositionRecord(line = 10u, column = 73u),
+                        end = PositionRecord(line = 36u, column = 1u),
+                        definition = null,
+                        stackFrameType = StackFrameType.HIDDEN,
+                        bindings = [],
+                        callSite = null,
+                        children = [
+                            GeneratedRangeRecord(
+                                start = PositionRecord(line = 11u, column = 41u),
+                                end = PositionRecord(line = 11u, column = 83u),
+                                definition = null,
+                                stackFrameType = StackFrameType.HIDDEN,
+                                bindings = [],
+                                callSite = null,
+                                children = [],
+                            ),
+                            GeneratedRangeRecord(
+                                start = PositionRecord(line = 12u, column = 139u),
+                                end = PositionRecord(line = 12u, column = 155u),
+                                definition = null,
+                                stackFrameType = StackFrameType.HIDDEN,
+                                bindings = [],
+                                callSite = null,
+                                children = [],
+                            ),
+                            GeneratedRangeRecord(
+                                start = PositionRecord(line = 13u, column = 21u),
+                                end = PositionRecord(line = 13u, column = 70u),
+                                definition = null,
+                                stackFrameType = StackFrameType.HIDDEN,
+                                bindings = [],
+                                callSite = null,
+                                children = [GeneratedRangeRecord(
+                                    start = PositionRecord(line = 13u, column = 43u),
+                                    end = PositionRecord(line = 13u, column = 67u),
+                                    definition = null,
+                                    stackFrameType = StackFrameType.HIDDEN,
+                                    bindings = [],
+                                    callSite = null,
+                                    children = [],
+                                )],
+                            ),
+                            GeneratedRangeRecord(
+                                start = PositionRecord(line = 14u, column = 22u),
+                                end = PositionRecord(line = 35u, column = 5u),
+                                definition = null,
+                                stackFrameType = StackFrameType.HIDDEN,
+                                bindings = [],
+                                callSite = null,
+                                children = [],
+                            ),
+                        ],
+                    ),
+                    // `function fn()` itself
+                    GeneratedRangeRecord(
+                        start = PositionRecord(line = 38u, column = 14u),
+                        end = PositionRecord(line = 47u, column = 1u),
+                        definition = expectedOriginalScopes[0].children[0],
+                        stackFrameType = StackFrameType.ORIGINAL,
+                        bindings = [],
+                        callSite = null,
                         children = [GeneratedRangeRecord(
-                            start = PositionRecord(line = 40u, column = 47u),
-                            end = PositionRecord(line = 45u, column = 9u),
+                            start = PositionRecord(line = 39u, column = 55u),
+                            end = PositionRecord(line = 46u, column = 5u),
                             definition = null,
                             stackFrameType = StackFrameType.HIDDEN,
                             bindings = [],
                             callSite = null,
-                            children = [],
+                            children = [GeneratedRangeRecord(
+                                start = PositionRecord(line = 40u, column = 47u),
+                                end = PositionRecord(line = 45u, column = 9u),
+                                definition = null,
+                                stackFrameType = StackFrameType.HIDDEN,
+                                bindings = [],
+                                callSite = null,
+                                children = [],
+                            )],
                         )],
-                    )],
-                ),
-            ],
-        )]
+                    ),
+                ],
+            )]
+        }
 
         val scopeNames = ["module", "fn", "function"]
 
-        testDecoder(encodedScopes, expectedOriginalScopes, expectedGeneratedRanges, scopeNames)
+        testDecoder(encodedScopes, encodedRanges, expectedOriginalScopes, scopeNames, expectedGeneratedRanges)
     }
 
     /*
@@ -1675,7 +1733,8 @@ class JsSourcemapScopesDecoderSuccessTest {
     */
     @Test
     fun outlineForLoopTest() {
-        val encodedScopes = "BCAAA,DC,BHAPCE,BCBdC,DG,CDD,CBB,CBG,ECAA,GA,EHCPC,EPBfC,GF,FDF,EBB7B,FDF,FBB,FBG"
+        val encodedScopes = "BCAAA,DC,BHAPCE,BCBdC,DG,CDD,CBB,CBG"
+        val encodedRanges = "ECAAA,GA,EHCPAC,EPBfAC,GF,FDF,EBB7B,FDF,FBB,FBG"
 
         val expectedOriginalScopes = [OriginalScopeRecord(
             start = PositionRecord(line = 0u, column = 0u),
@@ -1703,49 +1762,189 @@ class JsSourcemapScopesDecoderSuccessTest {
             isStackFrame = false,
         )]
 
-        val expectedGeneratedRanges = [GeneratedRangeRecord(
-            start = PositionRecord(line = 0u, column = 0u),
-            end = PositionRecord(line = 12u, column = 6u),
-            definition = expectedOriginalScopes[0],
-            stackFrameType = StackFrameType.NONE,
-            bindings = [
-                [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
-            ],
-            callSite = null,
-            children = [GeneratedRangeRecord(
-                start = PositionRecord(line = 2u, column = 15u),
-                end = PositionRecord(line = 11u, column = 1u),
-                definition = expectedOriginalScopes[0].children[0],
-                stackFrameType = StackFrameType.ORIGINAL,
-                bindings = [],
-                callSite = null,
-                children = [
-                    GeneratedRangeRecord(
-                        start = PositionRecord(line = 3u, column = 31u),
-                        end = PositionRecord(line = 6u, column = 5u),
-                        definition = expectedOriginalScopes[0].children[0].children[0],
-                        stackFrameType = StackFrameType.HIDDEN,
-                        bindings = [
-                            [BindingRecord(from = PositionRecord(line = 3u, column = 31u), binding = "x")],
-                        ],
-                        callSite = null,
-                        children = [],
-                    ),
-                    GeneratedRangeRecord(
-                        start = PositionRecord(line = 7u, column = 59u),
-                        end = PositionRecord(line = 10u, column = 5u),
-                        definition = null,
-                        stackFrameType = StackFrameType.NONE,
-                        bindings = [],
-                        callSite = null,
-                        children = [],
-                    ),
+        val expectedGeneratedRanges = { _: DecodedSourceRecord ->
+            [GeneratedRangeRecord(
+                start = PositionRecord(line = 0u, column = 0u),
+                end = PositionRecord(line = 12u, column = 6u),
+                definition = expectedOriginalScopes[0],
+                stackFrameType = StackFrameType.NONE,
+                bindings = [
+                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
                 ],
-            )],
-        )]
+                callSite = null,
+                children = [GeneratedRangeRecord(
+                    start = PositionRecord(line = 2u, column = 15u),
+                    end = PositionRecord(line = 11u, column = 1u),
+                    definition = expectedOriginalScopes[0].children[0],
+                    stackFrameType = StackFrameType.ORIGINAL,
+                    bindings = [],
+                    callSite = null,
+                    children = [
+                        GeneratedRangeRecord(
+                            start = PositionRecord(line = 3u, column = 31u),
+                            end = PositionRecord(line = 6u, column = 5u),
+                            definition = expectedOriginalScopes[0].children[0].children[0],
+                            stackFrameType = StackFrameType.HIDDEN,
+                            bindings = [
+                                [BindingRecord(from = PositionRecord(line = 3u, column = 31u), binding = "x")],
+                            ],
+                            callSite = null,
+                            children = [],
+                        ),
+                        GeneratedRangeRecord(
+                            start = PositionRecord(line = 7u, column = 59u),
+                            end = PositionRecord(line = 10u, column = 5u),
+                            definition = null,
+                            stackFrameType = StackFrameType.NONE,
+                            bindings = [],
+                            callSite = null,
+                            children = [],
+                        ),
+                    ],
+                )],
+            )]
+        }
 
         val scopeNames = ["module", "foo", "function", "for-loop", "x"]
 
-        testDecoder(encodedScopes, expectedOriginalScopes, expectedGeneratedRanges, scopeNames)
+        testDecoder(encodedScopes, encodedRanges, expectedOriginalScopes, scopeNames, expectedGeneratedRanges)
+    }
+
+    /**
+     * Three generated ranges in the same source whose `RangeDefinition`s stay within that source
+     * (`sourceOffset = 0` each time), confirming the scope-index accumulator behaves as a normal signed,
+     * relative accumulator when the source doesn't change: 0 -> +1 -> -1.
+     */
+    @Test
+    fun sameSourceRangeDefinitionSequenceTest() {
+        val encodedScopes = "BAAA,BAAB,CAB,CAB"
+        val encodedRanges = "ECAAA,FF,ECBAC,FF,ECBAD,FF"
+
+        val expectedOriginalScopes = [OriginalScopeRecord(
+            start = PositionRecord(line = 0u, column = 0u),
+            end = PositionRecord(line = 0u, column = 3u),
+            name = null,
+            kind = null,
+            variables = [],
+            children = [OriginalScopeRecord(
+                start = PositionRecord(line = 0u, column = 1u),
+                end = PositionRecord(line = 0u, column = 2u),
+                name = null,
+                kind = null,
+                variables = [],
+                children = [],
+                isStackFrame = false,
+            )],
+            isStackFrame = false,
+        )]
+
+        val expectedGeneratedRanges = { _: DecodedSourceRecord ->
+            [
+                GeneratedRangeRecord(
+                    start = PositionRecord(line = 0u, column = 0u),
+                    end = PositionRecord(line = 0u, column = 5u),
+                    definition = expectedOriginalScopes[0],
+                    stackFrameType = StackFrameType.NONE,
+                    bindings = [],
+                    callSite = null,
+                    children = [],
+                ),
+                GeneratedRangeRecord(
+                    start = PositionRecord(line = 0u, column = 6u),
+                    end = PositionRecord(line = 0u, column = 11u),
+                    definition = expectedOriginalScopes[0].children[0],
+                    stackFrameType = StackFrameType.NONE,
+                    bindings = [],
+                    callSite = null,
+                    children = [],
+                ),
+                GeneratedRangeRecord(
+                    start = PositionRecord(line = 0u, column = 12u),
+                    end = PositionRecord(line = 0u, column = 17u),
+                    definition = expectedOriginalScopes[0],
+                    stackFrameType = StackFrameType.NONE,
+                    bindings = [],
+                    callSite = null,
+                    children = [],
+                ),
+            ]
+        }
+
+        val scopeNames: List<String> = []
+
+        testDecoder(encodedScopes, encodedRanges, expectedOriginalScopes, scopeNames, expectedGeneratedRanges)
+    }
+
+    /**
+     * A `RangeDefinition` that jumps to a different source (nonzero signed `DefinitionSourceIdx`) uses an
+     * *unsigned* `DefinitionScopeIdx` and resets the scope-index accumulator to 0 first — confirmed here by
+     * leaving the first source's scope accumulator at index 1 before crossing over; without the reset, the
+     * second range's zero scope offset would resolve to the (out-of-bounds) index 1 in the new source.
+     */
+    @Test
+    fun crossSourceRangeDefinitionTest() {
+        val encodedScopesPerSource = ["BAAA,BAAB,CAB,CAB", "BAAA,CAB"]
+        val encodedRanges = "ECAAC,FF,ECBCA,FF"
+
+        val expectedOriginalScopesOne = [OriginalScopeRecord(
+            start = PositionRecord(line = 0u, column = 0u),
+            end = PositionRecord(line = 0u, column = 3u),
+            name = null,
+            kind = null,
+            variables = [],
+            children = [OriginalScopeRecord(
+                start = PositionRecord(line = 0u, column = 1u),
+                end = PositionRecord(line = 0u, column = 2u),
+                name = null,
+                kind = null,
+                variables = [],
+                children = [],
+                isStackFrame = false,
+            )],
+            isStackFrame = false,
+        )]
+
+        val expectedOriginalScopesTwo = [OriginalScopeRecord(
+            start = PositionRecord(line = 0u, column = 0u),
+            end = PositionRecord(line = 0u, column = 1u),
+            name = null,
+            kind = null,
+            variables = [],
+            children = [],
+            isStackFrame = false,
+        )]
+
+        val expectedGeneratedRanges = { _: List<DecodedSourceRecord> ->
+            [
+                GeneratedRangeRecord(
+                    start = PositionRecord(line = 0u, column = 0u),
+                    end = PositionRecord(line = 0u, column = 5u),
+                    definition = expectedOriginalScopesOne[0].children[0],
+                    stackFrameType = StackFrameType.NONE,
+                    bindings = [],
+                    callSite = null,
+                    children = [],
+                ),
+                GeneratedRangeRecord(
+                    start = PositionRecord(line = 0u, column = 6u),
+                    end = PositionRecord(line = 0u, column = 11u),
+                    definition = expectedOriginalScopesTwo[0],
+                    stackFrameType = StackFrameType.NONE,
+                    bindings = [],
+                    callSite = null,
+                    children = [],
+                ),
+            ]
+        }
+
+        val scopeNames: List<String> = []
+
+        testDecoder(
+            encodedScopesPerSource,
+            encodedRanges,
+            [expectedOriginalScopesOne, expectedOriginalScopesTwo],
+            scopeNames,
+            expectedGeneratedRanges,
+        )
     }
 }

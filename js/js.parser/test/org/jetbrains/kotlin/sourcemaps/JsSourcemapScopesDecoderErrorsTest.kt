@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.sourcemaps
 
 import org.jetbrains.kotlin.js.parser.sourcemaps.ECMA426BasedSourceMapParser.BindingRecord
+import org.jetbrains.kotlin.js.parser.sourcemaps.ECMA426BasedSourceMapParser.DecodedSourceRecord
 import org.jetbrains.kotlin.js.parser.sourcemaps.ECMA426BasedSourceMapParser.GeneratedRangeRecord
 import org.jetbrains.kotlin.js.parser.sourcemaps.ECMA426BasedSourceMapParser.OriginalScopeRecord
 import org.jetbrains.kotlin.js.parser.sourcemaps.ECMA426BasedSourceMapParser.PositionRecord
@@ -13,127 +14,140 @@ import org.jetbrains.kotlin.js.parser.sourcemaps.ECMA426BasedSourceMapParser.Sta
 import org.junit.jupiter.api.Test
 
 /**
- * Tests of the malformed and the edge-case `scopes` field decoding, based on the test cases taken from
+ * Tests of the malformed and the edge-case `scopes`/`ranges` field decoding, based on the test cases taken from
  * https://github.com/ChromeDevTools/source-map-scopes-codec (`src/decode/decode.test.ts`),
  * Copyright The Chromium Authors, BSD-3-Clause.
+ *
+ * Cases that exercise only original-scope grammar/tags (`B`/`C`/`D`) are routed through [testDecoderScopesFailure];
+ * cases that exercise only generated-range grammar/tags (`E`/`F`/`G`/`H`/`I`) are routed through
+ * [testDecoderRangesFailure]. Fixtures that used to combine both halves in one string (under the pre-split
+ * `scopes` field) have been split at the scopes/ranges boundary, and any `RangeDefinition` occurrence was migrated
+ * from a single VLQ to the two-VLQ `DefinitionSourceIdx DefinitionScopeIdx` form.
  */
 class JsSourcemapScopesDecoderErrorsTest {
     /** `C` (original scope end) with no matching `B` (original scope start). */
     @Test
     fun originalScopeEndWithoutStartTest() {
-        testDecoderFailure("CAA")
+        testDecoderScopesFailure("CAA")
     }
 
     /** `B` (original scope start) that is never closed by a `C` (original scope end). */
     @Test
     fun unterminatedOriginalScopeTest() {
-        testDecoderFailure("BAAA")
+        testDecoderScopesFailure("BAAA")
     }
 
     /** The stream ends in the middle of a VLQ, with the continuation bit of the last digit still set. */
     @Test
     fun truncatedVlqTest() {
-        testDecoderFailure("BAAg")
+        testDecoderScopesFailure("BAAg")
     }
 
     /** `F` (generated range end) with no matching `E` (generated range start). */
     @Test
     fun generatedRangeEndWithoutStartTest() {
-        testDecoderFailure("F0C")
+        testDecoderRangesFailure("F0C")
     }
 
     /** `E` (generated range start) that is never closed by an `F` (generated range end). */
     @Test
     fun unterminatedGeneratedRangeTest() {
-        testDecoderFailure("EA0C")
+        testDecoderRangesFailure("EA0C")
     }
 
-    /** `D` (original scope variables) outside of an original scope tree. */
+    /**
+     * `D` (original scope variables) outside of an original scope tree. Since the `Scopes` goal symbol requires the
+     * whole `scopes` string to be consumed, a `D` matching nothing at the top level is a failure rather than being
+     * silently ignored.
+     */
     @Test
     fun freeOriginalScopeVariablesTest() {
-        testDecoderFailure("DAC")
+        testDecoderScopesFailure("DAC")
     }
 
     /** `G` (generated range bindings) outside of a generated range tree. */
     @Test
     fun freeGeneratedRangeBindingsTest() {
-        testDecoderFailure("GAD")
+        testDecoderRangesFailure("GAD")
     }
 
     /** `H` (generated sub-range binding) outside of a generated range tree. */
     @Test
     fun freeSubRangeBindingTest() {
-        testDecoderFailure("HAAAA")
+        testDecoderRangesFailure("HAAAA")
     }
 
     /** `I` (generated range call site) outside of a generated range tree. */
     @Test
     fun freeGeneratedRangeCallSiteTest() {
-        testDecoderFailure("IAAA")
+        testDecoderRangesFailure("IAAA")
     }
 
     /** A `ScopeVariable` whose accumulated index points past the end of the `names` field. */
     @Test
     fun scopeVariableIndexOutOfBoundsTest() {
-        testDecoderFailure("BAAA,DAE,CBA", scopeNames = ["a"])
+        testDecoderScopesFailure("BAAA,DAE,CBA", scopeNames = ["a"])
     }
 
     /** An `OriginalScopeStart` whose `ScopeNameOrKind` index points past the end of the `names` field. */
     @Test
     fun scopeNameIndexOutOfBoundsTest() {
-        testDecoderFailure("BBAAC,CBA", scopeNames = ["a"])
+        testDecoderScopesFailure("BBAAC,CBA", scopeNames = ["a"])
     }
 
     /** An `OriginalScopeStart` whose `ScopeKind` index points past the end of the `names` field. */
     @Test
     fun scopeKindIndexOutOfBoundsTest() {
-        testDecoderFailure("BCAAC,CBA", scopeNames = ["a"])
+        testDecoderScopesFailure("BCAAC,CBA", scopeNames = ["a"])
     }
 
-    /** A `GeneratedRangeStart` with the `0x2` flag whose definition index doesn't refer to any decoded original scope. */
+    /**
+     * A `GeneratedRangeStart` with the `0x2` flag whose definition doesn't refer to any decoded original scope.
+     * The `RangeDefinition`'s source offset is `A` (same source, source index 0), and its scope offset (`B`, a
+     * signed VLQ) decodes to `Int.MIN_VALUE` per `VLQSignedValue`'s zero/negative-sign special case, which
+     * `AccumulateIndex` clamps to 0 — still out of bounds against a source with no scopes at all.
+     */
     @Test
     fun generatedRangeDefinitionOutOfBoundsTest() {
-        testDecoderFailure("ECAB,FC")
+        val sources = [DecodedSourceRecord(url = null, content = null, ignored = false, rootScopes = [])]
+        testDecoderRangesFailure("ECAAB,FC", sources)
     }
 
     /** A `GeneratedRangeStart` with the hidden flag (`0x8`) but without the stack frame flag (`0x4`). */
     @Test
     fun hiddenWithoutStackFrameFlagTest() {
-        testDecoderFailure("EIA,FC")
+        testDecoderRangesFailure("EIA,FC")
     }
 
     /**
-     * A leading `A` (empty item) standing for a source without any scope information, decoded as a `null` entry.
-     *
-     * Generated by the reference encoder from an `addNullScope()` followed by a single module scope.
+     * A source with no scope data (represented at the JSON level as a `null` array entry, decoded before parsing
+     * even starts — not as an in-band sentinel) alongside a second source that does have scope data.
      */
     @Test
     fun nullOriginalScopeTest() {
-        val encodedScopes = "A,BCAAA,DC,CFB"
-
-        val expectedOriginalScopes = [
-            null,
-            OriginalScopeRecord(
-                start = PositionRecord(line = 0u, column = 0u),
-                end = PositionRecord(line = 5u, column = 1u),
-                name = null,
-                kind = "module",
-                variables = ["x"],
-                children = [],
-                isStackFrame = false,
-            ),
-        ]
-
-        val expectedGeneratedRanges: List<GeneratedRangeRecord> = []
-
         val scopeNames = ["module", "x"]
 
-        testDecoder(encodedScopes, expectedOriginalScopes, expectedGeneratedRanges, scopeNames)
+        val expectedScope = OriginalScopeRecord(
+            start = PositionRecord(line = 0u, column = 0u),
+            end = PositionRecord(line = 5u, column = 1u),
+            name = null,
+            kind = "module",
+            variables = ["x"],
+            children = [],
+            isStackFrame = false,
+        )
+
+        testDecoder(
+            [null, "BCAAA,DC,CFB"],
+            null,
+            [null, [expectedScope]],
+            scopeNames,
+        ) { emptyList() }
     }
 
     /**
-     * An `InvalidItem` with an unknown tag (`42`) is decoded and ignored, so that the spec can add new items later
-     * without breaking existing decoders.
+     * An `InvalidRangeItem` with an unknown tag (`42`) is decoded and ignored, so that the spec can add new items
+     * later without breaking existing decoders.
      */
     @Test
     fun unknownItemTagIsIgnoredTest() {
@@ -142,14 +156,14 @@ class JsSourcemapScopesDecoderErrorsTest {
 
     /**
      * The upstream encoder writes its vendor extension items with the tag `0x63` instead of the `/` mandated by the
-     * spec, which makes them plain `InvalidItem`s. Such an item is decoded and ignored too.
+     * spec, which makes them plain `InvalidRangeItem`s. Such an item is decoded and ignored too.
      */
     @Test
     fun unknownItemTagOfUpstreamVendorExtensionIsIgnoredTest() {
         testDecoderIgnoresTrailingItem("jDA")
     }
 
-    /** A spec-conforming `VendorExtensionItem` (the `/` tag) among the top-level items is decoded and ignored. */
+    /** A spec-conforming `VendorExtensionItem` (the `/` tag) among the top-level range items is decoded and ignored. */
     @Test
     fun vendorExtensionItemIsIgnoredTest() {
         testDecoderIgnoresTrailingItem("/BAB")
@@ -170,11 +184,9 @@ class JsSourcemapScopesDecoderErrorsTest {
             isStackFrame = false,
         )]
 
-        val expectedGeneratedRanges: List<GeneratedRangeRecord> = []
-
         val scopeNames = ["a"]
 
-        testDecoder(encodedScopes, expectedOriginalScopes, expectedGeneratedRanges, scopeNames)
+        testDecoder(encodedScopes, null, expectedOriginalScopes, scopeNames) { emptyList() }
     }
 
     /**
@@ -184,25 +196,26 @@ class JsSourcemapScopesDecoderErrorsTest {
      */
     @Test
     fun bindingIndexOutOfBoundsIsNullTest() {
-        val encodedScopes = "EAA,GE,FC"
-
-        val expectedOriginalScopes: List<OriginalScopeRecord?> = []
-
-        val expectedGeneratedRanges = [GeneratedRangeRecord(
-            start = PositionRecord(line = 0u, column = 0u),
-            end = PositionRecord(line = 0u, column = 2u),
-            definition = null,
-            stackFrameType = StackFrameType.NONE,
-            bindings = [
-                [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
-            ],
-            callSite = null,
-            children = [],
-        )]
-
+        val encodedRanges = "EAA,GE,FC"
         val scopeNames = ["a"]
 
-        testDecoder(encodedScopes, expectedOriginalScopes, expectedGeneratedRanges, scopeNames)
+        val expectedGeneratedRanges = { source: DecodedSourceRecord ->
+            [GeneratedRangeRecord(
+                start = PositionRecord(line = 0u, column = 0u),
+                end = PositionRecord(line = 0u, column = 2u),
+                definition = null,
+                stackFrameType = StackFrameType.NONE,
+                bindings = [
+                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = null)],
+                ],
+                callSite = null,
+                children = [],
+            )]
+        }
+
+        // "" (not null) — this source has a `scopes` entry, it's just empty, unlike the JSON-`null` case
+        // exercised by nullOriginalScopeTest.
+        testDecoder("", encodedRanges, [], scopeNames, expectedGeneratedRanges)
     }
 
     /**
@@ -214,7 +227,8 @@ class JsSourcemapScopesDecoderErrorsTest {
      */
     @Test
     fun multipleSubRangeBindingsTest() {
-        val encodedScopes = "BCAAA,DCC,CBA,EGAA,GEF,HAAFGAEH,FU"
+        val encodedScopes = "BCAAA,DCC,CBA"
+        val encodedRanges = "EGAAA,GEF,HAAFGAEH,FU"
 
         val expectedOriginalScopes = [OriginalScopeRecord(
             start = PositionRecord(line = 0u, column = 0u),
@@ -226,26 +240,28 @@ class JsSourcemapScopesDecoderErrorsTest {
             isStackFrame = false,
         )]
 
-        val expectedGeneratedRanges = [GeneratedRangeRecord(
-            start = PositionRecord(line = 0u, column = 0u),
-            end = PositionRecord(line = 0u, column = 20u),
-            definition = expectedOriginalScopes[0],
-            stackFrameType = StackFrameType.ORIGINAL,
-            bindings = [
-                [
-                    BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "x"),
-                    BindingRecord(from = PositionRecord(line = 0u, column = 5u), binding = "y"),
-                    BindingRecord(from = PositionRecord(line = 0u, column = 9u), binding = null),
+        val expectedGeneratedRanges = { source: DecodedSourceRecord ->
+            [GeneratedRangeRecord(
+                start = PositionRecord(line = 0u, column = 0u),
+                end = PositionRecord(line = 0u, column = 20u),
+                definition = expectedOriginalScopes[0],
+                stackFrameType = StackFrameType.ORIGINAL,
+                bindings = [
+                    [
+                        BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "x"),
+                        BindingRecord(from = PositionRecord(line = 0u, column = 5u), binding = "y"),
+                        BindingRecord(from = PositionRecord(line = 0u, column = 9u), binding = null),
+                    ],
+                    [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "z")],
                 ],
-                [BindingRecord(from = PositionRecord(line = 0u, column = 0u), binding = "z")],
-            ],
-            callSite = null,
-            children = [],
-        )]
+                callSite = null,
+                children = [],
+            )]
+        }
 
         val scopeNames = ["module", "a", "b", "x", "z", "y"]
 
-        testDecoder(encodedScopes, expectedOriginalScopes, expectedGeneratedRanges, scopeNames)
+        testDecoder(encodedScopes, encodedRanges, expectedOriginalScopes, scopeNames, expectedGeneratedRanges)
     }
 
     /**
@@ -266,19 +282,17 @@ class JsSourcemapScopesDecoderErrorsTest {
             isStackFrame = false,
         )]
 
-        val expectedGeneratedRanges: List<GeneratedRangeRecord> = []
-
         val scopeNames = ["a"]
 
-        testDecoder(encodedScopes, expectedOriginalScopes, expectedGeneratedRanges, scopeNames)
+        testDecoder(encodedScopes, null, expectedOriginalScopes, scopeNames) { emptyList() }
     }
 
     /**
-     * Checks that a single module scope followed by [ignoredItem] decodes to that scope alone, with the item
-     * contributing neither an original scope nor a generated range.
+     * Checks that a single module scope followed by [ignoredItem] in the `ranges` field decodes to that scope
+     * alone, with the item contributing no generated range.
      */
     private fun testDecoderIgnoresTrailingItem(ignoredItem: String) {
-        val encodedScopes = "BCAAA,DC,CFB,$ignoredItem"
+        val encodedScopes = "BCAAA,DC,CFB"
 
         val expectedOriginalScopes = [OriginalScopeRecord(
             start = PositionRecord(line = 0u, column = 0u),
@@ -290,10 +304,8 @@ class JsSourcemapScopesDecoderErrorsTest {
             isStackFrame = false,
         )]
 
-        val expectedGeneratedRanges: List<GeneratedRangeRecord> = []
-
         val scopeNames = ["module", "x"]
 
-        testDecoder(encodedScopes, expectedOriginalScopes, expectedGeneratedRanges, scopeNames)
+        testDecoder(encodedScopes, ignoredItem, expectedOriginalScopes, scopeNames) { emptyList() }
     }
 }
