@@ -71,8 +71,7 @@ object AtomicfuErrorMessages : BaseDiagnosticRendererFactory() {
     private const val ATOMIC_FACTORIES_ARE_FOR_INITIALIZATION_ONLY_MESSAGE =
         "Atomic factories can only be called to initialize an atomic property or as delegates: `''{0}''`."
 
-    private const val ATOMIC_PROPERTIES_MUST_HAVE_BACKING_FIELD_MESSAGE = "Atomic properties must have a backing field.\n" +
-            "Consider declaring `''{0}''` as a property with a backing field."
+    private const val ATOMIC_PROPERTIES_MUST_HAVE_BACKING_FIELD_MESSAGE = "Atomic properties must have a backing field."
 
     private const val ATOMIC_LOCALS_ARE_FORBIDDEN_MESSAGE =
         "Local properties with kotlinx.atomicfu.Atomic* types are unsupported: `''{0}''`."
@@ -118,7 +117,7 @@ object AtomicfuErrorMessages : BaseDiagnosticRendererFactory() {
             AtomicfuErrors.ATOMIC_FACTORIES_ARE_FOR_INITIALIZATION_ONLY, ATOMIC_FACTORIES_ARE_FOR_INITIALIZATION_ONLY_MESSAGE, Renderers.TO_STRING
         )
         map.put(
-            AtomicfuErrors.ATOMIC_PROPERTIES_MUST_HAVE_BACKING_FIELD, ATOMIC_PROPERTIES_MUST_HAVE_BACKING_FIELD_MESSAGE, Renderers.TO_STRING
+            AtomicfuErrors.ATOMIC_PROPERTIES_MUST_HAVE_BACKING_FIELD, ATOMIC_PROPERTIES_MUST_HAVE_BACKING_FIELD_MESSAGE
         )
         map.put(
             AtomicfuErrors.ATOMIC_LOCALS_ARE_FORBIDDEN, ATOMIC_LOCALS_ARE_FORBIDDEN_MESSAGE, Renderers.TO_STRING

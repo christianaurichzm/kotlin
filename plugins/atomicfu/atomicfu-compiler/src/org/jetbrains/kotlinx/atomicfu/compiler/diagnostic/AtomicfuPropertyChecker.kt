@@ -96,11 +96,7 @@ object AtomicfuPropertyChecker : FirPropertyChecker(MppCheckerKind.Common) {
             )
         }
         if (!declaration.hasBackingField) {
-            reporter.reportOn(
-                declaration.source,
-                AtomicfuErrors.ATOMIC_PROPERTIES_MUST_HAVE_BACKING_FIELD,
-                declaration.source.text.toString()
-            )
+            reporter.reportOn(declaration.source, AtomicfuErrors.ATOMIC_PROPERTIES_MUST_HAVE_BACKING_FIELD)
         }
         if (declaration.returnTypeRef.coneType.isMarkedNullable) {
             reporter.reportOn(
