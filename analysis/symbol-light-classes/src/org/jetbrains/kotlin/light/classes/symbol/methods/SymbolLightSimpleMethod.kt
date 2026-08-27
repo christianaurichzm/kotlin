@@ -42,6 +42,7 @@ internal open class SymbolLightSimpleMethod protected constructor(
     valueParameterPickMask: BitSet?,
     private val suppressStatic: Boolean,
     jvmExposeBoxedKind: JvmExposeBoxedKind,
+    versionOverload: VersionOverload? = null,
 ) : SymbolLightMethod<KaNamedFunctionSymbol>(
     functionSymbol = functionSymbol,
     lightMemberOrigin = lightMemberOrigin,
@@ -49,6 +50,7 @@ internal open class SymbolLightSimpleMethod protected constructor(
     methodIndex = methodIndex,
     valueParameterPickMask = valueParameterPickMask,
     jvmExposeBoxedKind = jvmExposeBoxedKind,
+    versionOverload = versionOverload,
 ) {
     private val _name: String by lazyPub {
         withFunctionSymbol { functionSymbol ->
@@ -155,6 +157,7 @@ internal open class SymbolLightSimpleMethod protected constructor(
                 ),
                 annotationFilter = jvmExposeBoxedAwareAnnotationFilter,
                 additionalAnnotationsProvider = CompositeAdditionalAnnotationsProvider(
+                    VersionOverloadAdditionalAnnotationsProvider,
                     NullabilityAnnotationsProvider {
                         if (modifierList.hasModifierProperty(PsiModifier.PRIVATE)) {
                             NullabilityAnnotation.NOT_REQUIRED
@@ -262,7 +265,7 @@ internal open class SymbolLightSimpleMethod protected constructor(
             createMethodsJvmOverloadsAware(
                 declaration = functionSymbol,
                 methodIndexBase = methodIndex,
-            ) { methodIndex, valueParameterPickMask, hasValueClassInParameterType ->
+            ) { methodIndex, valueParameterPickMask, hasValueClassInParameterType, versionOverload ->
                 val hasMangledNameDueValueClassesInSignature = hasMangledNameDueValueClassesInSignature(
                     // Not every value class in a parameter position mangles the name, so the check cannot be reused from above
                     hasManglingValueClassInParameterType = hasManglingValueClassInParameterPosition(
@@ -301,6 +304,7 @@ internal open class SymbolLightSimpleMethod protected constructor(
                         valueParameterPickMask = valueParameterPickMask,
                         suppressStatic = suppressStatic,
                         jvmExposeBoxedKind = JvmExposeBoxedKind.BOXED,
+                        versionOverload = versionOverload,
                     )
                 }
 
@@ -314,6 +318,7 @@ internal open class SymbolLightSimpleMethod protected constructor(
                         valueParameterPickMask = valueParameterPickMask,
                         suppressStatic = suppressStatic,
                         jvmExposeBoxedKind = generationResult.regularMethodKind,
+                        versionOverload = versionOverload,
                     )
                 }
             }
