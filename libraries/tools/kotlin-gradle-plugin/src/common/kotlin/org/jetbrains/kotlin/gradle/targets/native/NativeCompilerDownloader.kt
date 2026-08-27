@@ -214,8 +214,11 @@ class NativeCompilerDownloader(
                     // included, appears in one step. REPLACE_EXISTING only ever clears an empty leftover directory.
                     Files.move(compilerTmp.toPath(), compilerDirectory.toPath(), StandardCopyOption.REPLACE_EXISTING)
                     logger.debug("Moved Kotlin/Native compiler from $tmpDir to $compilerDirectory")
-                } catch (_: DirectoryNotEmptyException) {
-                    // another build installed it first, writing on top would corrupt what it is reading (KT-86251)
+                } catch (e: DirectoryNotEmptyException) {
+                    // the same exception also reports 'the move needed copying', which installs nothing, so only
+                    // read it as 'another build got here first' when there really is a distribution in place
+                    if (!compilerDirectory.exists()) throw e
+                    // writing on top of that one would corrupt what the other build is reading (KT-86251)
                     logger.debug("Kotlin/Native compiler is already installed in $compilerDirectory")
                 }
             } finally {
