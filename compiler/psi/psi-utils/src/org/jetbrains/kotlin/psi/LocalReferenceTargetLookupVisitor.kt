@@ -310,6 +310,7 @@ private class LocalReferenceTargetLookupVisitor(val element: KtSimpleNameExpress
     override fun visitProperty(element: KtProperty) {
         foundIfNameMatches(element)
 
+        element.typeParameters.processMany(::processTypeParameter)
         element.contextParameters.processMany(::processParameter)
     }
 
