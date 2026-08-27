@@ -343,6 +343,18 @@ private class LocalReferenceTargetLookupVisitor(val element: KtSimpleNameExpress
         // resolution here
     }
 
+    override fun visitPrimaryConstructor(constructor: KtPrimaryConstructor) {
+        constructor.valueParameters.processMany(::processParameter)
+        constructor.contextParameters.processMany(::processParameter)
+        constructor.typeParameters.processMany(::processTypeParameter)
+    }
+
+    override fun visitSecondaryConstructor(constructor: KtSecondaryConstructor) {
+        constructor.valueParameters.processMany(::processParameter)
+        constructor.contextParameters.processMany(::processParameter)
+        constructor.typeParameters.processMany(::processTypeParameter)
+    }
+
     private fun processTypeParameter(tyParam: KtTypeParameter) {
         foundIfNameMatches(tyParam)
     }
