@@ -32,7 +32,7 @@ class MppDiagnosticsIt : KGPBaseTest() {
     @GradleTest
     fun testDiagnosticsRenderingSmoke(gradleVersion: GradleVersion) {
         project("diagnosticsRenderingSmoke", gradleVersion) {
-            build("-Pkotlin.internal.suppressGradlePluginErrors=DeprecatedKotlinNativeTargetsDiagnostic") {
+            build {
                 // with isolated projects enabled, the order of diagnostics blocks is non-deterministic
                 // and depends on the subproject evaluation order, so the easiest way to assert that all diagnostics blocks are present
                 // is to compare blocks ignoring the order
@@ -48,10 +48,6 @@ class MppDiagnosticsIt : KGPBaseTest() {
     fun testDeprecatedMppProperties(gradleVersion: GradleVersion) {
         for (deprecatedProperty in this.deprecatedFlags) {
             project("mppDeprecatedProperties", gradleVersion) {
-                this.gradleProperties.appendText(
-                    "kotlin.internal.suppressGradlePluginErrors=DeprecatedKotlinNativeTargetsDiagnostic${System.lineSeparator()}"
-                )
-
                 checkDeprecatedProperties(isDeprecationExpected = false)
 
                 this.gradleProperties.appendText(
@@ -65,9 +61,7 @@ class MppDiagnosticsIt : KGPBaseTest() {
 
                 checkDeprecatedProperties(
                     isDeprecationExpected = false,
-                    buildOptions = buildOptions.copy(
-                        freeArgs = listOf("-Pkotlin.internal.suppressGradlePluginErrors=DeprecatedKotlinNativeTargetsDiagnostic,PreHMPPFlagsError")
-                    ),
+                    buildOptions = buildOptions.suppressingGradlePluginErrors("PreHMPPFlagsError"),
                 )
             }
         }
@@ -149,7 +143,7 @@ class MppDiagnosticsIt : KGPBaseTest() {
     fun testSuppressGradlePluginErrors(gradleVersion: GradleVersion) {
         project("suppressGradlePluginErrors", gradleVersion) {
             // build succeeds
-            build("assemble", "-Pkotlin.internal.suppressGradlePluginErrors=CommonMainOrTestWithDependsOnDiagnostic,DeprecatedKotlinNativeTargetsDiagnostic") {
+            build("assemble", buildOptions = buildOptions.suppressingGradlePluginErrors("CommonMainOrTestWithDependsOnDiagnostic")) {
                 assertEqualsToFile(expectedOutputFile(), extractProjectsAndTheirDiagnostics())
             }
         }
@@ -170,7 +164,7 @@ class MppDiagnosticsIt : KGPBaseTest() {
     @GradleTest
     fun testSuppressGradlePluginWarnings(gradleVersion: GradleVersion) {
         project("suppressGradlePluginWarnings", gradleVersion) {
-            build("assemble", "-Pkotlin.internal.suppressGradlePluginErrors=DeprecatedKotlinNativeTargetsDiagnostic") {
+            build("assemble") {
                 assertEqualsToFile(expectedOutputFile(), extractProjectsAndTheirDiagnostics())
             }
         }
@@ -222,7 +216,7 @@ class MppDiagnosticsIt : KGPBaseTest() {
     @GradleTest
     fun testEarlyTasksMaterializationDoesntBreakReports(gradleVersion: GradleVersion) {
         project("earlyTasksMaterializationDoesntBreakReports", gradleVersion) {
-            buildAndFail("assemble", "-Pkotlin.internal.suppressGradlePluginErrors=DeprecatedKotlinNativeTargetsDiagnostic") {
+            buildAndFail("assemble") {
                 assertEqualsToFile(expectedOutputFile(), extractProjectsAndTheirDiagnostics())
             }
         }

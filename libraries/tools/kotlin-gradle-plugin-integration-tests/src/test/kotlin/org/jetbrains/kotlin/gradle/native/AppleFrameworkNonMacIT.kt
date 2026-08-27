@@ -39,7 +39,7 @@ class AppleFrameworkNonMacIT : KGPBaseTest() {
     fun checkXCFrameworkAndFatFrameworkTasksAreSkipped(gradleVersion: GradleVersion) {
 
         project("appleXCFramework", gradleVersion) {
-            build("assembleSharedDebugXCFramework", "-Pkotlin.internal.suppressGradlePluginErrors=DeprecatedKotlinNativeTargetsDiagnostic") {
+            build("assembleSharedDebugXCFramework") {
                 assertTasksSkipped(":shared:linkDebugFrameworkIosArm64")
                 assertTasksSkipped(":shared:linkDebugFrameworkIosX64")
                 assertTasksSkipped(":shared:linkDebugFrameworkWatchosSimulatorArm64")
