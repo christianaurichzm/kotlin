@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.expression.FirFunctionCallChecker
+import org.jetbrains.kotlin.fir.analysis.checkers.secondToLastContainer
 import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.expressions.FirFunctionCall
 import org.jetbrains.kotlin.fir.expressions.FirVariableAssignment
@@ -28,7 +29,7 @@ object AtomicfuFactoryCallChecker : FirFunctionCallChecker(MppCheckerKind.Common
     override fun check(expression: FirFunctionCall) {
         if (!expression.calleeReference.isAtomicFactory()) return
 
-        val parentElement = context.containingElements.getOrNull(context.containingElements.lastIndex - 1) ?: return
+        val parentElement = context.secondToLastContainer ?: return
         if (parentElement is FirProperty) {
             // Immediate property initialization or delegation
             val isValidInitialization =
