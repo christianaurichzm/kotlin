@@ -1500,6 +1500,12 @@ public class SymbolLightClassesByPsiForLibraryTestGenerated extends AbstractSymb
     }
 
     @Test
+    @TestMetadata("exposedWithoutValueClass.kt")
+    public void testExposedWithoutValueClass() {
+      run("exposedWithoutValueClass.kt");
+    }
+
+    @Test
     @TestMetadata("extension.kt")
     public void testExtension() {
       run("extension.kt");
@@ -2157,6 +2163,12 @@ public class SymbolLightClassesByPsiForLibraryTestGenerated extends AbstractSymb
       }
 
       @Test
+      @TestMetadata("jvmOverloadsJvmName.kt")
+      public void testJvmOverloadsJvmName() {
+        run("jvmOverloadsJvmName.kt");
+      }
+
+      @Test
       @TestMetadata("jvmOverloadsRegularReceiver.kt")
       public void testJvmOverloadsRegularReceiver() {
         run("jvmOverloadsRegularReceiver.kt");
@@ -2226,6 +2238,12 @@ public class SymbolLightClassesByPsiForLibraryTestGenerated extends AbstractSymb
       @TestMetadata("jvmOverloadsValueParameterDefaultName2.kt")
       public void testJvmOverloadsValueParameterDefaultName2() {
         run("jvmOverloadsValueParameterDefaultName2.kt");
+      }
+
+      @Test
+      @TestMetadata("jvmOverloadsValueParameterDirective.kt")
+      public void testJvmOverloadsValueParameterDirective() {
+        run("jvmOverloadsValueParameterDirective.kt");
       }
 
       @Test

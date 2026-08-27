@@ -41,23 +41,18 @@ internal open class SymbolLightSimpleMethod protected constructor(
     private val isTopLevel: Boolean,
     valueParameterPickMask: BitSet?,
     private val suppressStatic: Boolean,
-    isJvmExposedBoxed: Boolean,
+    jvmExposeBoxedKind: JvmExposeBoxedKind,
 ) : SymbolLightMethod<KaNamedFunctionSymbol>(
     functionSymbol = functionSymbol,
     lightMemberOrigin = lightMemberOrigin,
     containingClass = containingClass,
     methodIndex = methodIndex,
     valueParameterPickMask = valueParameterPickMask,
-    isJvmExposedBoxed = isJvmExposedBoxed,
+    jvmExposeBoxedKind = jvmExposeBoxedKind,
 ) {
     private val _name: String by lazyPub {
         withFunctionSymbol { functionSymbol ->
-            val defaultName = functionSymbol.name.asString()
-            if (isJvmExposedBoxed) {
-                computeJvmExposeBoxedMethodName(functionSymbol, defaultName)
-            } else {
-                functionSymbol.javaMethodName ?: defaultName
-            }
+            computeMethodName(functionSymbol, defaultName = functionSymbol.name.asString())
         }
     }
 
@@ -305,7 +300,7 @@ internal open class SymbolLightSimpleMethod protected constructor(
                         isTopLevel = isTopLevel,
                         valueParameterPickMask = valueParameterPickMask,
                         suppressStatic = suppressStatic,
-                        isJvmExposedBoxed = true,
+                        jvmExposeBoxedKind = JvmExposeBoxedKind.BOXED,
                     )
                 }
 
@@ -318,7 +313,7 @@ internal open class SymbolLightSimpleMethod protected constructor(
                         isTopLevel = isTopLevel,
                         valueParameterPickMask = valueParameterPickMask,
                         suppressStatic = suppressStatic,
-                        isJvmExposedBoxed = false,
+                        jvmExposeBoxedKind = generationResult.regularMethodKind,
                     )
                 }
             }
