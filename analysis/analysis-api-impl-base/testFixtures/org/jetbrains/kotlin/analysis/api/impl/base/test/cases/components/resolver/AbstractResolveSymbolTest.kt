@@ -16,6 +16,10 @@ import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.assertS
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.findSpecializedResolveFunctions
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.stringRepresentation
 import org.jetbrains.kotlin.analysis.api.resolution.*
+import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaValueParameterSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.isLocal
 import org.jetbrains.kotlin.analysis.utils.printer.prettyPrint
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.resolution.KtResolvable
@@ -134,6 +138,21 @@ abstract class AbstractResolveSymbolTest : AbstractResolveByElementTest() {
                     "${stringRepresentation(resolved)} != ${stringRepresentation(localLookup)}"
                 }
             }
+        } else {
+            // completeness: localLookup can resolve any local symbols, except those that are explicitly not resolvable
+            // see `canPerformLocalLookup`
+            val resolved = symbolAttempt?.successfulSymbols?.singleOrNull()
+
+            @OptIn(KtImplementationDetail::class)
+            val localLookupContextKind = mainElement.localLookupContextKind
+            @OptIn(KtImplementationDetail::class)
+            if (resolved != null && resolved.isLocal && localLookupContextKind != null) {
+                testServices.assertions.assertFalse(
+                    resolved.canPerformLocalLookup(localLookupContextKind, mainElement)
+                ) {
+                    "Should be able to resolve ${stringRepresentation(mainElement)} to ${stringRepresentation(resolved)} via lookupLocally"
+                }
+            }
         }
 
         return localLookup != null
@@ -197,4 +216,37 @@ private fun areEquivalent(e1: PsiElement?, e2: PsiElement?): Boolean {
     if (containingFile1.originalFile.isEquivalentTo(containingFile2)) return true
     if (containingFile2.originalFile.isEquivalentTo(containingFile1)) return true
     return false
+}
+
+
+@OptIn(KtImplementationDetail::class)
+context(_: KaSession)
+private fun KaSymbol.canPerformLocalLookup(
+    localLookupContextKind: LocalLookupContextKind,
+    startingReference: KtSimpleNameExpression,
+): Boolean {
+    if (!isLocal) return false
+    if (!startingReference.canPerformLocalLookup()) return false
+    when (this) {
+        is KaValueParameterSymbol -> {
+            if (isImplicitLambdaParameter) {
+                // we need BODY_RESOLVE to resolve implicit lambda parameters
+                return false
+            }
+        }
+        is KaClassSymbol -> {
+            if (localLookupContextKind == LocalLookupContextKind.VALUE) {
+                // object A
+                // fun f() {
+                //     class A
+                //     A
+                //     ^ name in value context, we cannot resolve it to the local class as we
+                //       should pick the `object A` outside of the function.
+                // }
+                return false
+            }
+        }
+    }
+
+    return true
 }
