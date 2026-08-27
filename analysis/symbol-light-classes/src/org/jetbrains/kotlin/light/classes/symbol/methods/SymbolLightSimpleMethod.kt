@@ -287,6 +287,13 @@ internal open class SymbolLightSimpleMethod protected constructor(
                     isSuspend = isSuspend,
                     isOverridable = isOverridable,
                     isEffectivelyPrivate = isEffectivelyPrivate,
+                    hasSameJvmSignatureWhenExposed = {
+                        hasSameJvmSignatureWhenExposed(
+                            callableSymbol = functionSymbol,
+                            exposedNameOwner = functionSymbol,
+                            valueParameterPickMask = valueParameterPickMask,
+                        )
+                    },
                 )
 
                 if (generationResult.isBoxedMethodRequired) {
