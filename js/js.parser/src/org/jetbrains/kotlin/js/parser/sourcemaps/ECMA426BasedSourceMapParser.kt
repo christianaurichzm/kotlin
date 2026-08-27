@@ -269,7 +269,7 @@ object ECMA426BasedSourceMapParser {
         var url: String?,
         var content: String?,
         var ignored: Boolean,
-        var scope: OriginalScopeRecord?,
+        var rootScopes: List<OriginalScopeRecord>?,
     )
 
     /**
@@ -335,24 +335,27 @@ object ECMA426BasedSourceMapParser {
         val ignoreListField = getOptionalListOfArrayIndexes(json, "ignoreList").ifFailure { return it }
         // 10. Let namesField be GetOptionalListOfStrings(json, "names").
         val namesField = getOptionalListOfStrings(json, "names").ifFailure { return it }
-        // 11. Let scopesField be GetOptionalString(json, "scopes").
-        val scopesField = getOptionalString(json, "scopes").ifFailure { return it }
-        // 12. Let scopesAndRanges be DecodeScopesInfo(scopesField, namesField).
-        val [scopes, ranges] = decodeScopesInfo(scopesField, namesField).ifFailure { return it }
-        // 13. Let sources be DecodeSourceMapSources(baseURL, sourceRootField, sourcesField, sourcesContentField, ignoreListField, scopesAndRanges.[[Scopes]]).
+        // 11. Let scopesField be GetOptionalListOfOptionalStrings(json, "scopes").
+        val scopesField = getOptionalListOfOptionalStrings(json, "scopes").ifFailure { return it }
+        // 12. Let rangesField be GetOptionalString(json, "ranges").
+        val rangesField = getOptionalString(json, "ranges").ifFailure { return it }
+        // 13. Let sources be DecodeSourceMapSources(baseURL, sourceRootField, sourcesField, sourcesContentField, ignoreListField, scopesField, namesField).
         val sources = decodeSourceMapSources(
             baseUrl,
             sourceRootField,
             sourcesField,
             sourcesContentField,
             ignoreListField,
-            scopes
+            scopesField,
+            namesField
         ).ifFailure { return it }
-        // 14. Let mappings be DecodeMappings(mappingsField, namesField, sources).
+        // 14. Let ranges be DecodeGeneratedRanges(rangesField, sources, namesField).
+        val ranges = decodeGeneratedRanges(rangesField, sources, namesField).ifFailure { return it }
+        // 15. Let mappings be DecodeMappings(mappingsField, namesField, sources).
         val mappings = decodeMappings(mappingsField, namesField, sources).ifFailure { return it }
-        // 15. Sort mappings in ascending order, with a Decoded Mapping Record a being less than a Decoded Mapping Record b if ComparePositions(a.[[GeneratedPosition]], b.[[GeneratedPosition]]) is lesser.
+        // 16. Sort mappings in ascending order, with a Decoded Mapping Record a being less than a Decoded Mapping Record b if ComparePositions(a.[[GeneratedPosition]], b.[[GeneratedPosition]]) is lesser.
         mappings.sortedWith { record1, record2 -> comparePositions(record1.generatedPosition, record2.generatedPosition).value }
-        // 16. Return the Decoded Source Map Record { [[File]]: fileField, [[Sources]]: sources, [[Mappings]]: mappings }.
+        // 17. Return the Decoded Source Map Record { [[File]]: fileField, [[Sources]]: sources, [[Mappings]]: mappings, [[Ranges]]: ranges }.
         return Success(DecodedSourceMapRecord(fileField, sources, mappings, ranges))
     }
 
@@ -862,42 +865,21 @@ object ECMA426BasedSourceMapParser {
     //
     // 9.3.3 Scopes grammar
 
-    /**
-     * ```text
-     * Scopes :
-     *     OriginalScopeTreeList
-     *     TopLevelItemList
-     *     OriginalScopeTreeList , TopLevelItemList
-     * ```
-     */
-    private data class Scopes(
-        val originalScopes: List<OriginalScopeTreeItem>,
-        val topLevelItems: List<TopLevelItem>,
-    )
 
     /**
      * ```text
      * OriginalScopeTreeItem :
      *     OriginalScopeTree
-     *     EmptyItem
      * ```
      */
     private sealed interface OriginalScopeTreeItem
 
     /**
      * ```text
-     * EmptyItem :
-     *     A
-     * ```
-     */
-    private data object EmptyItem : OriginalScopeTreeItem
-
-    /**
-     * ```text
      * TopLevelItem :
      *     GeneratedRangeTree
      *     VendorExtensionItem
-     *     InvalidItem
+     *     InvalidRangeItem
      * ```
      */
     private sealed interface TopLevelItem
@@ -920,7 +902,7 @@ object ECMA426BasedSourceMapParser {
      * OriginalScopeItem :
      *     OriginalScopeTree
      *     VendorExtensionItem
-     *     InvalidItem
+     *     InvalidScopeItem
      * ```
      */
     private sealed interface OriginalScopeItem
@@ -1034,7 +1016,7 @@ object ECMA426BasedSourceMapParser {
      *     GeneratedSubRangeBinding
      *     GeneratedRangeTree
      *     VendorExtensionItem
-     *     InvalidItem
+     *     InvalidRangeItem
      * ```
      */
     private sealed interface GeneratedRangeItem
@@ -1133,10 +1115,29 @@ object ECMA426BasedSourceMapParser {
     /**
      * ```text
      * RangeDefinition :
+     *     DefinitionSourceIdx DefinitionScopeIdx
+     * ```
+     */
+    private data class RangeDefinition(
+        val sourceIdx: DefinitionSourceIdx,
+        val scopeIdx: DefinitionScopeIdx,
+    )
+
+    /**
+     * ```text
+     * DefinitionSourceIdx :
      *     Vlq
      * ```
      */
-    private typealias RangeDefinition = Vlq
+    private typealias DefinitionSourceIdx = Vlq
+
+    /**
+     * ```text
+     * DefinitionScopeIdx :
+     *     Vlq
+     * ```
+     */
+    private typealias DefinitionScopeIdx = Vlq
 
     /**
      * ```text
@@ -1216,61 +1217,38 @@ object ECMA426BasedSourceMapParser {
 
     /**
      * ```text
-     * InvalidItem :
-     *     Tag
-     *     Tag VlqList
+     * InvalidScopeItem :
+     *     InvalidScopeTag
+     *     InvalidScopeTag VlqList
      * ```
      */
-    private data class InvalidItem(
+    private data class InvalidScopeItem(
         val tag: Vlq,
         val data: List<Vlq>,
-    ) : TopLevelItem, OriginalScopeItem, GeneratedRangeItem
+    ) : OriginalScopeItem
 
     /**
-     * @see <a href="https://tc39.es/ecma426/branch/proposal-scopes/#sec-scopes-grammar">Section 9.3.3: Scopes grammar</a>
+     * ```text
+     * InvalidRangeItem :
+     *     InvalidRangeTag
+     *     InvalidRangeTag VlqList
+     * ```
      */
-    context(stream: ParserStream)
-    private fun parseScopesField(): ParsingResult<Scopes> {
-        val result = parseScopes()
-            .required("scopes item", stream)
-            .ifFailure { return it }
-
-        if (!stream.isEnded) {
-            return Failure(
-                "Unexpected '${stream.current}' at position ${stream.position}"
-            )
-        }
-
-        return Success(result)
-    }
+    private data class InvalidRangeItem(
+        val tag: Vlq,
+        val data: List<Vlq>,
+    ) : TopLevelItem, GeneratedRangeItem
 
     /**
      * ```text
      * Scopes :
-     *     OriginalScopeTreeList
-     *     TopLevelItemList
-     *     OriginalScopeTreeList , TopLevelItemList
+     *     OriginalScopeTreeList?
      * ```
      */
     context(stream: ParserStream)
-    private fun parseScopes(): ParsingResult<Scopes> {
-        val originalScopes = when (val originalList = parseOriginalScopeTreeList()) {
-            is Failure -> return Failure(originalList.message, originalList.cause)
-            is NoMatch -> {
-                val topLevelItems = parseTopLevelItemList().ifFailure { return it }
-                return Success(Scopes(emptyList(), topLevelItems))
-            }
-            is Success -> originalList.value
-        }
-
-        if (stream.parseChar(',') is NoMatch) {
-            return Success(Scopes(originalScopes, emptyList()))
-        }
-
-        val topLevelItems = parseTopLevelItemList()
-            .required("top-level item", stream)
-            .ifFailure { return it }
-        return Success(Scopes(originalScopes, topLevelItems))
+    private fun parseScopes(): ParsingResult<List<OriginalScopeTreeItem>?> {
+        val originalScopeTrees = stream.parseOptional { parseOriginalScopeTreeList() }.ifFailure { return it }
+        return Success(originalScopeTrees)
     }
 
     /**
@@ -1289,26 +1267,25 @@ object ECMA426BasedSourceMapParser {
      * ```text
      * OriginalScopeTreeItem :
      *     OriginalScopeTree
-     *     EmptyItem
      * ```
      */
     context(stream: ParserStream)
     private fun parseOriginalScopeTreeItem(): ParsingResult<OriginalScopeTreeItem> {
         return stream.parseOneOf(
-            { parseOriginalScopeTree() },
-            { parseEmptyItem() }
+            { parseOriginalScopeTree() }
         )
     }
 
     /**
      * ```text
-     * EmptyItem :
-     *     A
+     * Ranges :
+     *     TopLevelItemList?
      * ```
      */
     context(stream: ParserStream)
-    private fun parseEmptyItem(): ParsingResult<EmptyItem> {
-        return stream.parseChar(VlqKindTag.EMPTY_ITEM).map { EmptyItem }
+    private fun parseRanges(): ParsingResult<List<TopLevelItem>?> {
+        val topLevelItems = stream.parseOptional { parseTopLevelItemList() }.ifFailure { return it }
+        return Success(topLevelItems)
     }
 
     /**
@@ -1328,7 +1305,7 @@ object ECMA426BasedSourceMapParser {
      * TopLevelItem :
      *     GeneratedRangeTree
      *     VendorExtensionItem
-     *     InvalidItem
+     *     InvalidRangeItem
      * ```
      */
     context(stream: ParserStream)
@@ -1336,7 +1313,7 @@ object ECMA426BasedSourceMapParser {
         return stream.parseOneOf(
             { parseGeneratedRangeTree() },
             { parseVendorExtensionItem() },
-            { parseInvalidItem() }
+            { parseInvalidRangeItem() }
         )
     }
 
@@ -1391,7 +1368,7 @@ object ECMA426BasedSourceMapParser {
      * OriginalScopeItem :
      *     OriginalScopeTree
      *     VendorExtensionItem
-     *     InvalidItem
+     *     InvalidScopeItem
      * ```
      */
     context(stream: ParserStream)
@@ -1399,7 +1376,7 @@ object ECMA426BasedSourceMapParser {
         return stream.parseOneOf(
             { parseOriginalScopeTree() },
             { parseVendorExtensionItem() },
-            { parseInvalidItem() }
+            { parseInvalidScopeItem() }
         )
     }
 
@@ -1551,7 +1528,7 @@ object ECMA426BasedSourceMapParser {
      *     GeneratedSubRangeBinding
      *     GeneratedRangeTree
      *     VendorExtensionItem
-     *     InvalidItem
+     *     InvalidRangeItem
      * ```
      */
     context(stream: ParserStream)
@@ -1560,7 +1537,7 @@ object ECMA426BasedSourceMapParser {
             { parseGeneratedSubRangeBinding() },
             { parseGeneratedRangeTree() },
             { parseVendorExtensionItem() },
-            { parseInvalidItem() }
+            { parseInvalidRangeItem() }
         )
     }
 
@@ -1579,8 +1556,11 @@ object ECMA426BasedSourceMapParser {
         val line: RangeLine? =
             if ((flags and 0x1u) != 0u) parseRequiredVlq("range line").ifFailure { return it } else null
         val column: RangeColumn = parseRequiredVlq("range column").ifFailure { return it }
-        val definition: RangeDefinition? =
-            if ((flags and 0x2u) != 0u) parseRequiredVlq("range definition").ifFailure { return it } else null
+        val definition: RangeDefinition? = if ((flags and 0x2u) != 0u) {
+            val sourceIdx: DefinitionSourceIdx = parseRequiredVlq("range definition source index").ifFailure { return it }
+            val scopeIdx: DefinitionScopeIdx = parseRequiredVlq("range definition scope index").ifFailure { return it }
+            RangeDefinition(sourceIdx, scopeIdx)
+        } else null
 
         return Success(GeneratedRangeStart(flags, line, column, definition))
     }
@@ -1726,30 +1706,60 @@ object ECMA426BasedSourceMapParser {
 
     /**
      * ```text
-     * InvalidItem :
-     *     Tag
-     *     Tag VlqList
+     * InvalidScopeItem :
+     *     InvalidScopeTag
+     *     InvalidScopeTag VlqList
      * ```
      */
     context(stream: ParserStream)
-    private fun parseInvalidItem(): ParsingResult<InvalidItem> {
-        val tag = parseInvalidTag().ifFailure { return it }
+    private fun parseInvalidScopeItem(): ParsingResult<InvalidScopeItem> {
+        val tag = parseInvalidScopeTag().ifFailure { return it }
         val data: List<Vlq> = parseVlqList()
             .defaultIfNoMatch(::emptyList)
             .ifFailure { return it }
 
-        return Success(InvalidItem(tag, data))
+        return Success(InvalidScopeItem(tag, data))
     }
 
     /**
      * ```text
-     * Tag :
-     *     Vlq but not one of A B C D E F G H I /
+     * InvalidScopeTag :
+     *     Vlq but not one of B C D /
      * ```
      */
     context(stream: ParserStream)
-    private fun parseInvalidTag(): ParsingResult<Vlq> {
-        if (stream.current in VlqKindTag.knownTags) return NoMatch()
+    private fun parseInvalidScopeTag(): ParsingResult<Vlq> {
+        if (stream.current in VlqKindTag.knownScopeTags) return NoMatch()
+
+        return parseVlq()
+    }
+
+    /**
+     * ```text
+     * InvalidRangeItem :
+     *     InvalidRangeTag
+     *     InvalidRangeTag VlqList
+     * ```
+     */
+    context(stream: ParserStream)
+    private fun parseInvalidRangeItem(): ParsingResult<InvalidRangeItem> {
+        val tag = parseInvalidRangeTag().ifFailure { return it }
+        val data: List<Vlq> = parseVlqList()
+            .defaultIfNoMatch(::emptyList)
+            .ifFailure { return it }
+
+        return Success(InvalidRangeItem(tag, data))
+    }
+
+    /**
+     * ```text
+     * InvalidRangeTag :
+     *     Vlq but not one of E F G H I /
+     * ```
+     */
+    context(stream: ParserStream)
+    private fun parseInvalidRangeTag(): ParsingResult<Vlq> {
+        if (stream.current in VlqKindTag.knownRangeTags) return NoMatch()
 
         return parseVlq()
     }
@@ -1758,24 +1768,27 @@ object ECMA426BasedSourceMapParser {
     // 9.3.4 Decoding the scopes field
 
     /**
-     * @see <a href="https://tc39.es/ecma426/branch/proposal-scopes/#sec-scope-info-record-type">Section 9.3.4.1: Scope Info Record</a>
-     */
-    data class ScopeInfoRecord(
-        val scopes: List<OriginalScopeRecord?>,
-        val ranges: List<GeneratedRangeRecord>,
-    )
-
-    /**
-     * @see <a href="https://tc39.es/ecma426/branch/proposal-scopes/#sec-decode-scope-state-record-type">Table 13: Decode Scope State Record Fields</a>
+     * The scopes grammar defined in the scopes and ranges grammar section is context-sensitive and heavily
+     * utilizes relative numbers to reduce the bytes required for the encoded scope information. As such, the
+     * grammar alone is not enough to describe how a `Scopes` parse node is turned into Original Scope Records,
+     * and a `Ranges` parse node is turned into Generated Range Records.
+     *
+     * @see <a href="https://tc39.es/ecma426/branch/proposal-scopes/#sec-decode-scope-state-record-type">Section 9.3.4.1: Decode Scope State Record</a>
      */
     data class DecodeScopeStateRecord(
-        val flatOriginalScopes: MutableList<OriginalScopeRecord>,
         val scopePosition: PositionAccumulatorRecord,
         val scopeNameIndex: IndexAccumulatorRecord,
         val scopeKindIndex: IndexAccumulatorRecord,
         val scopeVariableIndex: IndexAccumulatorRecord,
+    )
+
+    /**
+     * @see <a href="https://tc39.es/ecma426/branch/proposal-scopes/#sec-decode-scope-state-record-type">Section 9.3.4.1: Decode Range State Record</a>
+     */
+    data class DecodeRangeStateRecord(
         val rangePosition: PositionAccumulatorRecord,
-        val rangeDefinitionIndex: IndexAccumulatorRecord,
+        val rangeDefinitionSourceIndex: IndexAccumulatorRecord,
+        val rangeDefinitionScopeIndex: IndexAccumulatorRecord,
     )
 
     /**
@@ -1789,7 +1802,7 @@ object ECMA426BasedSourceMapParser {
     data class PositionAccumulatorRecord(override var line: UInt, override var column: UInt) : PositionWithLineAndColumn
 
     /**
-     * @see <a href="https://tc39.es/ecma426/branch/proposal-scopes/#sec-AccumulateIndex">Section 9.3.4.2.1: AccumulateIndex(accumulator, increment)</a>
+     * @see <a href="https://tc39.es/ecma426/branch/proposal-scopes/#sec-AccumulateIndex">Section 9.3.4.1.1: AccumulateIndex(accumulator, increment)</a>
      */
     private fun accumulateIndex(accumulator: IndexAccumulatorRecord, increment: Int): Int {
         // 1. Set accumulator.[[Index]] to accumulator.[[Index]] + increment.
@@ -1805,7 +1818,7 @@ object ECMA426BasedSourceMapParser {
     }
 
     /**
-     * @see <a href="https://tc39.es/ecma426/branch/proposal-scopes/#sec-AccumulatePosition">Section 9.3.4.2.2: AccumulatePosition(accumulator, lineIncrement, columnIncrement)</a>
+     * @see <a href="https://tc39.es/ecma426/branch/proposal-scopes/#sec-AccumulatePosition">Section 9.3.4.1.2: AccumulatePosition(accumulator, lineIncrement, columnIncrement)</a>
      */
     private fun accumulatePosition(
         accumulator: PositionAccumulatorRecord,
@@ -1824,76 +1837,46 @@ object ECMA426BasedSourceMapParser {
     }
 
     /**
-     * @see <a href="https://tc39.es/ecma426/branch/proposal-scopes/#sec-DecodeScopesInfo">Section 9.3.4.3: DecodeScopesInfo(scopes, names)</a>
+     * @see <a href="https://tc39.es/ecma426/branch/proposal-scopes/#sec-DecodeSourceScopes">Section 9.3.4.2: DecodeSourceScopes(scopes, names)</a>
      */
     private fun decodeScopesInfo(
         scopes: String?,
         names: List<String>,
-    ): ParsingResult<ScopeInfoRecord> {
-        // 1. Let result be a new Scope Info Record { [[Scopes]]: « », [[Ranges]]: « » }.
-        // 2. If scopes is null, return result.
-        if (scopes == null) return Success(ScopeInfoRecord([], []))
+    ): ParsingResult<List<OriginalScopeRecord>> {
+        // 1. If scopes is null, return « ».
+        if (scopes == null) return Success([])
 
-        // 3. Let parsedScopes be the root Parse Node when parsing scopes using Scopes as the goal symbol.
+        // 2. Let parsedScopes be the root Parse Node when parsing scopes using Scopes as the goal symbol.
         val stream = ParserStream(scopes)
-        // 4. If parsing failed, then
+        // 3. If parsing failed, then
         //       a. Optionally report an error.
-        //       b. Return result.
+        //       b. Return « ».
+        //       c. If the stream is not fully consumed, optionally report an error and return « ».
         // (the failure should be reported directly from the parser)
         val parsedScopes = context(stream) {
-            parseScopesField().ifFailure { return it }
+            val result = parseScopes().ifFailure { return it }
+            if (!stream.isEnded) {
+                return Failure("Unexpected '${stream.current}' at position ${stream.position}")
+            }
+            result
         }
 
-        // 5. Let scopePosition be a new Position Accumulator Record { [[Line]]: 0, [[Column]]: 0 }.
-        // 6. Let scopeNameIndex be a new Index Accumulator Record { [[Index]]: 0 }.
-        // 7. Let scopeKindIndex be a new Index Accumulator Record { [[Index]]: 0 }.
-        // 8. Let scopeVariableIndex be a new Index Accumulator Record { [[Index]]: 0 }.
-        // 9. Let rangePosition be a new Position Accumulator Record { [[Line]]: 0, [[Column]]: 0 }.
-        // 10. Let rangeDefinitionIndex be a new Index Accumulator Record { [[Index]]: 0 }.
-        // 11. Let state be a new Decode Scope State Record { [[FlatOriginalScopes]]: « », [[ScopePosition]]: scopePosition, [[ScopeNameIndex]]: scopeNameIndex, [[ScopeKindIndex]]: scopeKindIndex, [[ScopeVariableIndex]]: scopeVariableIndex, [[RangePosition]]: rangePosition, [[RangeDefinitionIndex]]: rangeDefinitionIndex }.
+        // 4. Let scopePosition be a new Position Accumulator Record { [[Line]]: 0, [[Column]]: 0 }.
+        // 5. Let scopeNameIndex be a new Index Accumulator Record { [[Index]]: 0 }.
+        // 6. Let scopeKindIndex be a new Index Accumulator Record { [[Index]]: 0 }.
+        // 7. Let scopeVariableIndex be a new Index Accumulator Record { [[Index]]: 0 }.
+        // 8. Let state be a new Decode Scope State Record { [[ScopePosition]]: scopePosition, [[ScopeNameIndex]]: scopeNameIndex, [[ScopeKindIndex]]: scopeKindIndex, [[ScopeVariableIndex]]: scopeVariableIndex }.
         val state = DecodeScopeStateRecord(
-            flatOriginalScopes = mutableListOf(),
             scopePosition = PositionAccumulatorRecord(0u, 0u),
             scopeNameIndex = IndexAccumulatorRecord(0),
             scopeKindIndex = IndexAccumulatorRecord(0),
             scopeVariableIndex = IndexAccumulatorRecord(0),
-            rangePosition = PositionAccumulatorRecord(0u, 0u),
-            rangeDefinitionIndex = IndexAccumulatorRecord(0),
         )
 
-        // 12. Perform DecodeScopesInfoItem of parsedScopes with arguments result, state and names.
-        // 13. Return result.
-        // (the record is built and returned by DecodeScopesInfoItem instead of being mutated in place)
+        // 9. Return DecodedTopLevelOriginalScopeTrees of parsedScopes with arguments state and names.
         return context(state, names) {
-            decodeScopesInfoItem(parsedScopes)
+            decodedTopLevelOriginalScopeTrees(parsedScopes)
         }
-    }
-
-    /**
-     * @see <a href="https://tc39.es/ecma426/branch/proposal-scopes/#sec-DecodeScopesInfoItem">Section 9.3.4.3.1: DecodeScopesInfoItem</a>
-     */
-    context(state: DecodeScopeStateRecord, names: List<String>)
-    private fun decodeScopesInfoItem(parsedScopes: Scopes): ParsingResult<ScopeInfoRecord> {
-        val [originalScopes, topLevelItems] = parsedScopes
-
-        // Scopes : OriginalScopeTreeList
-        // Scopes : OriginalScopeTreeList `,` TopLevelItemList
-        // 1. Let originalScopes be the DecodedTopLevelOriginalScopeTrees of OriginalScopeTreeList with arguments state and names.
-        // 2. Set info.[[Scopes]] to originalScopes.
-        var originalScopeRecords = emptyList<OriginalScopeRecord?>()
-        if (originalScopes.isNotEmpty()) {
-            originalScopeRecords = decodedTopLevelOriginalScopeTrees(originalScopes).ifFailure { return it }
-        }
-
-        // Scopes : OriginalScopeTreeList `,` TopLevelItemList
-        // 3. Let generatedRanges be the DecodedGeneratedRangeTrees of TopLevelItemList with arguments state and names.
-        // 4. Set info.[[Ranges]] to generatedRanges.
-        var generatedRangeRecords = emptyList<GeneratedRangeRecord>()
-        if (topLevelItems.isNotEmpty()) {
-            generatedRangeRecords = decodedGeneratedRangeTrees(topLevelItems).ifFailure { return it }
-        }
-
-        return Success(ScopeInfoRecord(originalScopeRecords, generatedRangeRecords))
     }
 
     /**
@@ -1901,25 +1884,18 @@ object ECMA426BasedSourceMapParser {
      */
     context(state: DecodeScopeStateRecord, names: List<String>)
     private fun decodedTopLevelOriginalScopeTrees(
-        originalScopes: List<OriginalScopeTreeItem>,
-    ): ParsingResult<List<OriginalScopeRecord?>> {
+        originalScopes: List<OriginalScopeTreeItem>?,
+    ): ParsingResult<List<OriginalScopeRecord>> {
+        // 1. If OriginalScopeTreeList is not present, return « ».
+        if (originalScopes == null) return Success([])
         // OriginalScopeTreeList : OriginalScopeTreeList `,` OriginalScopeTreeItem
         return originalScopes.map { originalScope ->
             when (originalScope) {
                 // OriginalScopeTreeItem : OriginalScopeTree
                 is OriginalScopeTree -> {
-                    // 1. Set state.[[ScopePosition]].[[Line]] to 0.
-                    // 2. Set state.[[ScopePosition]].[[Column]] to 0.
-                    state.scopePosition.apply {
-                        line = 0u
-                        column = 0u
-                    }
-                    // 3. Return the DecodedOriginalScopeTrees of OriginalScopeTree with arguments state and names.
+                    // 1. Return the DecodedOriginalScopeTrees of OriginalScopeTree with arguments state and names.
                     decodedOriginalScopeTrees(originalScope).ifFailure { failure -> return failure }
                 }
-                // OriginalScopeTreeItem : EmptyItem
-                // 1. Return « null ».
-                EmptyItem -> null
             }
         }.let(::Success)
     }
@@ -1959,14 +1935,11 @@ object ECMA426BasedSourceMapParser {
             isStackFrame = false,
         )
 
-        // 6. Append originalScope to state.[[FlatOriginalScopes]].
-        state.flatOriginalScopes += originalScope
-
-        // 7. If flags & 0x4 = 0x4, set originalScope.[[IsStackFrame]] to true.
+        // 6. If flags & 0x4 = 0x4, set originalScope.[[IsStackFrame]] to true.
         if ((flags and 0x4u) == 0x4u)
             originalScope.isStackFrame = true
 
-        // 8. If OriginalScopeVariablesItem is present, then
+        // 7. If OriginalScopeVariablesItem is present, then
         if (originalScopeTree.variables != null) {
             // a. Set originalScope.[[Variables]] to the OriginalScopeVariables of OriginalScopeVariablesItem with arguments state.[[ScopeVariableIndex]] and names.
             originalScope.variables = context(state.scopeVariableIndex) {
@@ -1974,7 +1947,7 @@ object ECMA426BasedSourceMapParser {
             }.ifFailure { return it }
         }
 
-        // 9. If OriginalScopeItemList is present, then
+        // 8. If OriginalScopeItemList is present, then
         if (originalScopeTree.items != null) {
             // a. Set originalScope.[[Children]] to the DecodedOriginalScopeTrees of OriginalScopeItemList with arguments state and names.
             // OriginalScopeItemList : OriginalScopeItemList `,` OriginalScopeItem
@@ -1985,12 +1958,12 @@ object ECMA426BasedSourceMapParser {
                 }
         }
 
-        // 10. Set originalScope.[[End]] to the DecodedPosition of OriginalScopeEnd with argument state.[[ScopePosition]].
+        // 9. Set originalScope.[[End]] to the DecodedPosition of OriginalScopeEnd with argument state.[[ScopePosition]].
         originalScope.end = context(state.scopePosition) {
             decodedPosition(originalScopeTree.end.line, originalScopeTree.end.column)
         }.ifFailure { return it }
 
-        // 11. Return « originalScope ».
+        // 10. Return « originalScope ».
         return Success(originalScope)
     }
 
@@ -2099,10 +2072,54 @@ object ECMA426BasedSourceMapParser {
     }
 
     /**
+     * @see <a href="https://tc39.es/ecma426/branch/proposal-scopes/#sec-DecodeGeneratedRanges">Section 9.3.4.3: DecodeGeneratedRanges(ranges, sources, names)</a>
+     */
+    internal fun decodeGeneratedRanges(
+        ranges: String?,
+        sources: List<DecodedSourceRecord>,
+        names: List<String>
+    ): ParsingResult<List<GeneratedRangeRecord>> {
+        // 1. If ranges is null, return « ».
+        if (ranges == null) return Success([])
+
+        // 2. Let parsedRanges be the root Parse Node when parsing ranges using Ranges as the goal symbol.
+        val stream = ParserStream(ranges)
+        // 3. If parsing failed, then
+        //       a. Optionally report an error.
+        //       b. Return « ».
+        //       c. If the stream is not fully consumed, optionally report an error and return « ».
+        // (the failure should be reported directly from the parser)
+        val parsedRanges = context(stream) {
+            val result = parseRanges().ifFailure { return it }
+            if (!stream.isEnded) {
+                return Failure("Unexpected '${stream.current}' at position ${stream.position}")
+            }
+            result
+        }
+
+        // 4. Let rangePosition be a new Position Accumulator Record { [[Line]]: 0, [[Column]]: 0 }.
+        // 5. Let rangeDefinitionSourceIndex be a new Index Accumulator Record { [[Index]]: 0 }.
+        // 6. Let rangeDefinitionScopeIndex be a new Index Accumulator Record { [[Index]]: 0 }.
+        // 7. Let state be a new Decode Range State Record { [[RangePosition]]: rangePosition, [[RangeDefinitionSourceIndex]]: rangeDefinitionSourceIndex [[RangeDefinitionScopeIndex]]: rangeDefinitionScopeIndex }.
+        val state = DecodeRangeStateRecord(
+            rangePosition = PositionAccumulatorRecord(0u, 0u),
+            rangeDefinitionSourceIndex = IndexAccumulatorRecord(0),
+            rangeDefinitionScopeIndex = IndexAccumulatorRecord(0),
+        )
+
+        // 8. Let result be the DecodedGeneratedRangeTrees of parsedRanges with arguments state, sources and names.
+        return context(state, sources, names) {
+            decodedGeneratedRangeTrees(parsedRanges)
+        }
+    }
+
+    /**
      * @see <a href="https://tc39.es/ecma426/branch/proposal-scopes/#sec-DecodedGeneratedRangeTrees">Section 9.3.4.5: DecodedGeneratedRangeTrees</a>
      */
-    context(state: DecodeScopeStateRecord, names: List<String>)
-    private fun decodedGeneratedRangeTrees(topLevelItems: List<TopLevelItem>): ParsingResult<List<GeneratedRangeRecord>> {
+    context(state: DecodeRangeStateRecord, sources: List<DecodedSourceRecord>, names: List<String>)
+    private fun decodedGeneratedRangeTrees(topLevelItems: List<TopLevelItem>?): ParsingResult<List<GeneratedRangeRecord>> {
+        // 1. If TopLevelItemList is not present, return « ».
+        if (topLevelItems == null) return Success([])
         // TopLevelItemList : TopLevelItemList `,` TopLevelItem
         return topLevelItems
             .filterIsInstance<GeneratedRangeTree>()
@@ -2115,7 +2132,7 @@ object ECMA426BasedSourceMapParser {
     /**
      * @see <a href="https://tc39.es/ecma426/branch/proposal-scopes/#sec-DecodedGeneratedRangeTrees">Section 9.3.4.5: DecodedGeneratedRangeTrees</a>
      */
-    context(state: DecodeScopeStateRecord, names: List<String>)
+    context(state: DecodeRangeStateRecord, sources: List<DecodedSourceRecord>, names: List<String>)
     private fun decodedGeneratedRangeTree(generatedRangeTree: GeneratedRangeTree): ParsingResult<GeneratedRangeRecord> {
         // GeneratedRangeTree : GeneratedRangeStart GeneratedRangeBindingsItem? GeneratedRangeCallSiteItem? GeneratedRangeItemList? `,` GeneratedRangeEnd
         // 1. Let start be the DecodedPosition of GeneratedRangeStart with argument state.[[RangePosition]].
@@ -2123,9 +2140,9 @@ object ECMA426BasedSourceMapParser {
             decodedPosition(generatedRangeTree.start.line, generatedRangeTree.start.column)
         }.ifFailure { return it }
 
-        // 2. Let definition be the GeneratedRangeDefinition of GeneratedRangeStart with arguments state.[[RangeDefinitionIndex]] and state.[[FlatOriginalScopes]].
-        val definition = context(state.rangeDefinitionIndex) {
-            generatedRangeDefinition(generatedRangeTree.start, state.flatOriginalScopes)
+        // 2. Let definition be the GeneratedRangeDefinition of GeneratedRangeStart with arguments state and sources.
+        val definition = context(state) {
+            generatedRangeDefinition(generatedRangeTree.start, sources)
         }.ifFailure { return it }
 
         // 3. Let flags be the VLQUnsignedValue of GeneratedRangeStart's RangeFlags nonterminal.
@@ -2157,7 +2174,7 @@ object ECMA426BasedSourceMapParser {
         // 10. Else,
         //       a. Let callSite be null.
         val callSite = generatedRangeTree.callSite?.let { callSiteItem ->
-            generatedRangeCallSite(callSiteItem.callSite).ifFailure { failure -> return failure }
+            generatedRangeCallSite(callSiteItem.callSite, sources).ifFailure { failure -> return failure }
         }
 
         // 11. If GeneratedRangeItemList is present, then
@@ -2213,10 +2230,10 @@ object ECMA426BasedSourceMapParser {
     /**
      * @see <a href="https://tc39.es/ecma426/branch/proposal-scopes/#sec-GeneratedRangeDefinition">Section 9.3.4.5.1: GeneratedRangeDefinition</a>
      */
-    context(accumulator: IndexAccumulatorRecord)
+    context(state: DecodeRangeStateRecord)
     private fun generatedRangeDefinition(
         generatedRangeStart: GeneratedRangeStart,
-        scopes: List<OriginalScopeRecord>,
+        sources: List<DecodedSourceRecord>,
     ): ParsingResult<OriginalScopeRecord?> {
         // 1. Let flags be the VLQUnsignedValue of RangeFlags.
         val flags = generatedRangeStart.flags
@@ -2224,22 +2241,70 @@ object ECMA426BasedSourceMapParser {
         if ((flags and 0x2u) != 0x2u) return Success(null)
         // 3. Assert: RangeDefinition is present.
         val definition = requireNotNull(generatedRangeStart.definition) { "RangeDefinition expected, got null" }
-        // 4. Let relativeDefinition be the VLQSignedValue of RangeDefinition.
-        val relativeDefinition = vlqSignedValue(definition).ifFailure { return it }
-        // 5. Let scopeIndex be AccumulateIndex(accumulator, relativeDefinition).
-        val scopeIndex = accumulateIndex(accumulator, relativeDefinition)
-        // 6. Return scopes[scopeIndex].
-        if (scopeIndex >= scopes.size) {
-            return Failure("Generated range definition index $scopeIndex exceeds the number of original scopes")
+        // 4. Return GeneratedRangeDefinition of RangeDefinition with arguments state and sources.
+        // RangeDefinition : DefinitionSourceIdx DefinitionScopeIdx
+        // 1. Let sourceOffset be the VLQSignedValue of DefinitionSourceIdx.
+        val sourceOffset = vlqSignedValue(definition.sourceIdx).ifFailure { return it }
+        // 2. Let sourceIndex be AccumulateIndex(state.[[RangeDefinitionSourceIndex]], sourceOffset).
+        val sourceIndex = accumulateIndex(state.rangeDefinitionSourceIndex, sourceOffset)
+        if (sourceIndex >= sources.size) {
+            return Failure("Generated range definition source index $sourceIndex exceeds the number of sources")
         }
-        return Success(scopes[scopeIndex])
+        // 3. Let source be sources[sourceIndex].
+        val source = sources[sourceIndex]
+        // 4. If sourceOffset = 0, then
+        //       a. Let scopeOffset be the VLQSignedValue of DefinitionScopeIdx.
+        // 5. Else,
+        //       a. Set state.[[RangeDefinitionScopeIndex]].[[Index]] to 0.
+        //       b. Let scopeOffset be the VLQUnsignedValue of DefinitionScopeIdx.
+        // (the scope offset is signed and relative within the same source, but unsigned and effectively
+        //  absolute when the source changes)
+        val scopeOffset = if (sourceOffset == 0) {
+            vlqSignedValue(definition.scopeIdx).ifFailure { return it }
+        } else {
+            state.rangeDefinitionScopeIndex.index = 0
+            vlqUnsignedValue(definition.scopeIdx).ifFailure { return it }.toInt()
+        }
+        // 6. Let scopeIndex be AccumulateIndex(state.[[RangeDefinitionScopeIndex]], scopeOffset).
+        val scopeIndex = accumulateIndex(state.rangeDefinitionScopeIndex, scopeOffset)
+        // 7. Return ScopeForScopeIndex(source.[[RootScopes]], scopeIndex).
+        return scopeForScopeIndex(source.rootScopes, scopeIndex)
+    }
+
+    /**
+     * @see <a href="https://tc39.es/ecma426/branch/proposal-scopes/#sec-ScopeForScopeIndex">Section 9.3.4.4.7: ScopeForScopeIndex(scopes, index)</a>
+     */
+    private fun scopeForScopeIndex(scopes: List<OriginalScopeRecord>?, index: Int): ParsingResult<OriginalScopeRecord> {
+        // 1. Return FlattenedScopes(scopes)[index].
+        val flattened = flattenedScopes(scopes ?: emptyList())
+        if (index < 0 || index >= flattened.size) {
+            return Failure("Generated range definition scope index $index exceeds the number of original scopes")
+        }
+        return Success(flattened[index])
+    }
+
+    /**
+     * @see <a href="https://tc39.es/ecma426/branch/proposal-scopes/#sec-FlattenedScopes">Section 9.3.4.4.7.1: FlattenedScopes(scopes)</a>
+     */
+    private fun flattenedScopes(scopes: List<OriginalScopeRecord>): List<OriginalScopeRecord> {
+        // 1. Let result be « ».
+        val result = mutableListOf<OriginalScopeRecord>()
+        // 2. For each Original Scope Record scope of scopes, do
+        for (scope in scopes) {
+            //       a. Append scope to result.
+            result.add(scope)
+            //       b. Append each element of FlattenedScopes(scope.[[Children]]) to result.
+            result.addAll(flattenedScopes(scope.children))
+        }
+        // 3. Return result.
+        return result
     }
 
     /**
      * @see <a href="https://tc39.es/ecma426/branch/proposal-scopes/#sec-GeneratedRangeCallSite">Section 9.3.4.5.2: GeneratedRangeCallSite</a>
      */
     data class GeneratedRangeCallSiteRecord(
-        val sourceIndex: UInt,
+        val source: DecodedSourceRecord,
         override val line: UInt,
         override val column: UInt,
     ) : PositionWithLineAndColumn
@@ -2247,15 +2312,21 @@ object ECMA426BasedSourceMapParser {
     /**
      * @see <a href="https://tc39.es/ecma426/branch/proposal-scopes/#sec-GeneratedRangeCallSite">Section 9.3.4.5.2: GeneratedRangeCallSite</a>
      */
-    private fun generatedRangeCallSite(generatedRangeCallSite: GeneratedRangeCallSite): ParsingResult<GeneratedRangeCallSiteRecord> {
+    private fun generatedRangeCallSite(
+        generatedRangeCallSite: GeneratedRangeCallSite,
+        sources: List<DecodedSourceRecord>,
+    ): ParsingResult<GeneratedRangeCallSiteRecord> {
         // 1. Let sourceIndex be the VLQUnsignedValue of CallSiteSourceIdx.
         val sourceIndex = vlqUnsignedValue(generatedRangeCallSite.sourceIndex).ifFailure { return it }
         // 2. Let line be the VLQUnsignedValue of CallSiteLine.
         val line = vlqUnsignedValue(generatedRangeCallSite.line).ifFailure { return it }
         // 3. Let column be the VLQUnsignedValue of CallSiteColumn.
         val column = vlqUnsignedValue(generatedRangeCallSite.column).ifFailure { return it }
-        // 4. Return a new Original Position Record { [[SourceIndex]]: sourceIndex, [[Line]]: line, [[Column]]: column }.
-        return Success(GeneratedRangeCallSiteRecord(sourceIndex, line, column))
+        // 4. Return a new Original Position Record { [[Source]]: sources[sourceIndex], [[Line]]: line, [[Column]]: column }.
+        if (sourceIndex >= sources.size.toUInt()) {
+            return Failure("Generated range call site source index $sourceIndex exceeds the number of sources")
+        }
+        return Success(GeneratedRangeCallSiteRecord(sources[sourceIndex.toInt()], line, column))
     }
 
     /**
@@ -2315,7 +2386,7 @@ object ECMA426BasedSourceMapParser {
         return generatedRangeItems
             // GeneratedRangeItem : GeneratedRangeTree
             // GeneratedRangeItem : VendorExtensionItem
-            // GeneratedRangeItem : InvalidItem
+            // GeneratedRangeItem : InvalidRangeItem
             // 1. Return « ».
             .filterIsInstance<GeneratedSubRangeBinding>()
             .map { generatedSubRangeBinding ->
@@ -2359,7 +2430,7 @@ object ECMA426BasedSourceMapParser {
     // 9.4 Resolving sources
 
     /**
-     * @see <a href="https://tc39.es/ecma426/branch/proposal-scopes/#sec-DecodeSourceMapSources">Section 9.4.1: DecodeSourceMapSources(baseURL, sourceRoot, sources, sourcesContent, ignoreList, scopes)</a>
+     * @see <a href="https://tc39.es/ecma426/branch/proposal-scopes/#sec-DecodeSourceMapSources">Section 9.4.1: DecodeSourceMapSources(baseURL, sourceRoot, sources, sourcesContent, ignoreList, encodedScopes, names)</a>
      */
     private fun decodeSourceMapSources(
         baseUrl: String, // URL,
@@ -2367,7 +2438,8 @@ object ECMA426BasedSourceMapParser {
         sources: List<String?>,
         sourcesContent: List<String?>,
         ignoreList: List<UInt>,
-        scopes: List<OriginalScopeRecord?>,
+        encodedScopes: List<String?>,
+        names: List<String>,
     ): ParsingResult<List<DecodedSourceRecord>> {
         // 1. Let decodedSources be a new empty List.
         val decodedSources = mutableListOf<DecodedSourceRecord>()
@@ -2391,8 +2463,8 @@ object ECMA426BasedSourceMapParser {
         for (index in 0 until sources.size) {
             // a. Let source be sources[index].
             var source = sources[index]
-            // b. Let decodedSource be the Decoded Source Record { [[URL]]: null, [[Content]]: null, [[Ignored]]: false, [[Scope]]: null }.
-            val decodedSource = DecodedSourceRecord(url = null, content = null, ignored = false, scope = null)
+            // b. Let decodedSource be the Decoded Source Record { [[URL]]: null, [[Content]]: null, [[Ignored]]: false, [[RootScopes]]: null }.
+            val decodedSource = DecodedSourceRecord(url = null, content = null, ignored = false, rootScopes = null)
             // c. If source ≠ null, then
             if (source != null) {
                 // i. Set source to the string-concatenation of sourceUrlPrefix and source.
@@ -2412,9 +2484,14 @@ object ECMA426BasedSourceMapParser {
             if (sourcesContentCount > index) {
                 decodedSource.content = sourcesContent[index]
             }
-            // f. If index < scopes' length, set decodedSource.[[Scope]] to scopes.[index].
-            if (index < scopes.size)
-                decodedSource.scope = scopes[index]
+            // f. If index < encodedScopes' length and encodedScopes[index] is not null, then
+            val encodedSourceScopes = encodedScopes.getOrNull(index)
+            if (encodedSourceScopes != null) {
+                // i. Let decodedSourceScopes be DecodeSourceScopes(encodedScopes[index], names).
+                val decodedSourceScopes = decodeSourceScopes(encodedSourceScopes, names).ifFailure { return it }
+                // ii. Set decodedSource.[[RootScopes]] to decodedSourceScopes.
+                decodedSource.rootScopes = decodedSourceScopes
+            }
             // g. Append decodedSource to decodedSources.
             decodedSources.add(decodedSource)
         }
@@ -2652,8 +2729,6 @@ object ECMA426BasedSourceMapParser {
 
     /** Tags used by the scopes grammar to identify item kinds. */
     private object VlqKindTag {
-        const val EMPTY_ITEM = 'A'
-
         const val ORIGINAL_SCOPE_START = 'B'
         const val ORIGINAL_SCOPE_END = 'C'
         const val ORIGINAL_SCOPE_VARIABLES = 'D'
@@ -2666,9 +2741,14 @@ object ECMA426BasedSourceMapParser {
 
         const val VENDOR_EXTENSION = '/'
 
-        val knownTags = setOf(
-            EMPTY_ITEM,
+        /** Tags reserved by the `Scopes` grammar — anything else is an [InvalidScopeItem]. */
+        val knownScopeTags = setOf(
             ORIGINAL_SCOPE_START, ORIGINAL_SCOPE_END, ORIGINAL_SCOPE_VARIABLES,
+            VENDOR_EXTENSION
+        )
+
+        /** Tags reserved by the `Ranges` grammar — anything else is an [InvalidRangeItem]. */
+        val knownRangeTags = setOf(
             GENERATED_RANGE_START, GENERATED_RANGE_END, GENERATED_RANGE_BINDINGS, GENERATED_SUB_RANGE_BINDINGS, GENERATED_RANGE_CALL_SITE,
             VENDOR_EXTENSION
         )
