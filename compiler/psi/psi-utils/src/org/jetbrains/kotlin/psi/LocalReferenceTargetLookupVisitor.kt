@@ -12,6 +12,7 @@ import com.intellij.psi.TokenType
 import com.intellij.psi.util.elementType
 import org.jetbrains.kotlin.KtNodeTypes
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.psi.psiUtil.isPropertyParameter
 
 /**
  * Performs local, PSI-only name lookups.
@@ -115,7 +116,7 @@ private class LocalReferenceTargetLookupVisitor(val element: KtSimpleNameExpress
 
             previousElement = current
             current = next(current) ?: return null
-            processIgnores(current)
+            processMove(current)
         }
     }
 
@@ -124,6 +125,7 @@ private class LocalReferenceTargetLookupVisitor(val element: KtSimpleNameExpress
     private val name: Name = element.getReferencedNameAsName()
 
     private val resolveIgnore: MutableSet<KtElement> = mutableSetOf()
+    private var constructorParametersAllowed: Boolean = false
 
     private fun ignore(element: KtElement) {
         resolveIgnore.add(element)
@@ -224,16 +226,34 @@ private class LocalReferenceTargetLookupVisitor(val element: KtSimpleNameExpress
      * @see ignore
      * @see next
      */
-    private fun processIgnores(current: KtElement) {
+    private fun processMove(current: KtElement) {
+        if (previousElement is KtClass) constructorParametersAllowed = false
+
         when (current) {
             is KtProperty -> {
-                if (lastDirectionIs(LastDirection.PARENT) && previousElement == current.delegateExpressionOrInitializer) {
-                    // fun f(x: Int) {
-                    //      val x = x
-                    //              ^ this x cannot refer to the local variable
-                    //                initializers / delegates cannot refer to the variable that they are initializing
-                    // }
-                    ignore(current)
+                if (lastDirectionIs(LastDirection.PARENT)) {
+                    if (previousElement == current.delegateExpressionOrInitializer) {
+                        // fun f(x: Int) {
+                        //      val x = x
+                        //              ^ this x cannot refer to the local variable
+                        //                initializers / delegates cannot refer to the variable that they are initializing
+                        // }
+                        ignore(current)
+
+                        // class A(x: Int) {
+                        //     val y: Int = x
+                        //                  ^ we should resolve x to the constructor parameter
+                        // }
+                        constructorParametersAllowed = true
+                    } else if (previousElement is KtPropertyAccessor) {
+                        // fun f(x: Int) {
+                        //     class A(x: Int) {
+                        //         val y: Int get() = x
+                        //                            ^ this x refers to the parameter of f, not the constructor parameter
+                        //     }
+                        // }
+                        constructorParametersAllowed = false
+                    }
                 }
             }
 
@@ -289,6 +309,24 @@ private class LocalReferenceTargetLookupVisitor(val element: KtSimpleNameExpress
                     ignoreParameter(loopParameter)
                 }
             }
+
+            is KtSuperTypeCallEntry -> {
+                // class A(i: Int)
+                // class B(i: Int) : A(i)
+                //                     ^ we need to be able to resolve this i to the parameter
+
+                constructorParametersAllowed = true
+            }
+
+            is KtAnonymousInitializer -> {
+                // class A(i: Int) {
+                //     init {
+                //         val x = i
+                //                 ^ we need to be able to resolve this i to the constructor parameter
+                //     }
+                // }
+                constructorParametersAllowed = true
+            }
         }
     }
 
@@ -327,6 +365,15 @@ private class LocalReferenceTargetLookupVisitor(val element: KtSimpleNameExpress
                 ?.let(::found)
         }
         foundIfNameMatches(klass)
+        if (constructorParametersAllowed) {
+            klass.primaryConstructorParameters.processMany {
+                if (it.isPropertyParameter()) {
+                    return@processMany
+                }
+
+                processParameter(it)
+            }
+        }
     }
 
     override fun visitObjectDeclaration(declaration: KtObjectDeclaration) {
