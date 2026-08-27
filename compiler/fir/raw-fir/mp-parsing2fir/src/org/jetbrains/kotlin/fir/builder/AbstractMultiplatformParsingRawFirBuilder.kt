@@ -39,6 +39,8 @@ abstract class AbstractMultiplatformParsingRawFirBuilder(
     override val LightNode.elementType: SyntaxElementType
         get() = tree.getType(this)
 
+    override fun SyntaxElementType.toTokenId(): Int = KtNodeTypes.getElementTypeId(this) // or just .index ?
+
     override fun SyntaxElementType.isPlus(): Boolean = this == KtTokens.PLUS
     override fun SyntaxElementType.isMinus(): Boolean = this == KtTokens.MINUS
 
@@ -118,8 +120,12 @@ abstract class AbstractMultiplatformParsingRawFirBuilder(
             tree.getChildren(it).filter { it.isExpression() }
         }
 
-    protected fun LightNode.getParent(): LightNode? {
+    override fun LightNode.getParent(): LightNode? {
         return tree.getParent(this)
+    }
+
+    override fun LightNode.getChildren(): List<LightNode> {
+        return tree.getChildren(this)
     }
 
     override fun LightNode.getFirstChildExpression(): LightNode? {

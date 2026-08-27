@@ -22,6 +22,7 @@ import org.jetbrains.kotlin.fir.expressions.builder.buildErrorExpression
 import org.jetbrains.kotlin.fir.symbols.impl.FirErrorPropertySymbol
 import org.jetbrains.kotlin.fir.types.FirImplicitTypeRef
 import org.jetbrains.kotlin.fir.types.impl.FirImplicitBuiltinTypeRef
+import org.jetbrains.kotlin.kmp.parser.KtNodeTypes
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 
@@ -33,8 +34,50 @@ interface NodeTypeAnalyzer<Node : Any, Type : Any> {
     val implicitAnnotationType: FirImplicitBuiltinTypeRef
 
     fun Node.toFirSourceElement(kind: KtFakeSourceElementKind? = null): KtSourceElement
-
     val Node.elementType: Type
+    val Node.asText: String
+    fun Node.getReferencedNameAsName(): Name
+    fun Node.getChildNodeByType(type: Type): Node?
+    fun Node.getChildren(): List<Node> =
+        throw UnsupportedOperationException("Not supported in PsiRawFirBuilder")
+
+    fun Node.getParent(): Node? =
+        throw UnsupportedOperationException("Not supported in PsiRawFirBuilder")
+
+    fun Node.getChildNodeByTokenId(tokenId: Int): Node? {
+        var result: Node? = null
+        forEachChildren { node ->
+            if (result != null) return@forEachChildren
+            when (node.elementType.toTokenId()) {
+                tokenId -> result = node
+            }
+        }
+        return result
+    }
+
+    fun Node?.getChildNodesByTokenId(tokenId: Int): List<Node> {
+        return this?.forEachChildrenReturnList { node, container ->
+            when (node.elementType.toTokenId()) {
+                tokenId -> container += node
+            }
+        } ?: emptyList()
+    }
+
+    fun Node.getOperationTokenId(): Int {
+        return getChildren().first().elementType.toTokenId()
+    }
+
+    fun isCallableLocal(callableNode: Node, getParent: Node.() -> Node?): Boolean {
+        val parentNode = callableNode.getParent()
+        return when (parentNode?.elementType?.toTokenId()) {
+            KtNodeTypes.KT_FILE_ID, KtNodeTypes.CLASS_BODY_ID -> false
+            KtNodeTypes.BLOCK_ID -> when (parentNode.getParent()?.elementType?.toTokenId()) {
+                KtNodeTypes.SCRIPT_ID -> false
+                else -> true
+            }
+            else -> true
+        }
+    }
 
     fun Node.forEachChildren(f: (Node) -> Unit) {}
     fun <T> Node.forEachChildrenReturnList(f: (Node, MutableList<T>) -> Unit): MutableList<T> {
@@ -68,6 +111,8 @@ interface NodeTypeAnalyzer<Node : Any, Type : Any> {
         }
     }
 
+    fun Type.toTokenId(): Int
+
     fun Type.isPlus(): Boolean
     fun Type.isMinus(): Boolean
 
@@ -90,40 +135,4 @@ interface NodeTypeAnalyzer<Node : Any, Type : Any> {
     fun Type.isParenthesized(): Boolean
     fun Type.isLabeledExpression(): Boolean
     fun Type.isAnnotatedExpression(): Boolean
-
-    fun Type.isFile(): Boolean
-    fun Type.isFileAnnotationList(): Boolean
-    fun Type.isPackageDirective(): Boolean
-    fun Type.isImportList(): Boolean
-    fun Type.isClass(): Boolean
-    fun Type.isObjectDeclaration(): Boolean
-    fun Type.isFun(): Boolean
-    fun Type.isProperty(): Boolean
-    fun Type.isTypealias(): Boolean
-    fun Type.isDestructuringDeclaration(): Boolean
-    fun Type.isScript(): Boolean
-    fun Type.isModifierList(): Boolean
-
-    fun Type.isAnnotation(): Boolean
-    fun Type.isAnnotationEntry(): Boolean
-    fun Type.isAnnotationTarget(): Boolean
-    fun Type.isConstructorCallee(): Boolean
-
-    fun Type.isAllKeyword(): Boolean
-    fun Type.isFieldKeyword(): Boolean
-    fun Type.isFileKeyword(): Boolean
-    fun Type.isPropertyKeyword(): Boolean
-    fun Type.isGetKeyword(): Boolean
-    fun Type.isSetKeyword(): Boolean
-    fun Type.isReceiverKeyword(): Boolean
-    fun Type.isParamKeyword(): Boolean
-    fun Type.isSetParamKeyword(): Boolean
-    fun Type.isDelegateKeyword(): Boolean
-
-    fun Type.isTypeReference(): Boolean
-    fun Type.isUserType(): Boolean
-    fun Type.isNullableType(): Boolean
-    fun Type.isFunctionType(): Boolean
-    fun Type.isDynamicType(): Boolean
-    fun Type.isIntersectionType(): Boolean
 }

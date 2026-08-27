@@ -43,6 +43,7 @@ import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.builder.*
 import org.jetbrains.kotlin.fir.types.impl.*
+import org.jetbrains.kotlin.kmp.utils.kmpId
 import org.jetbrains.kotlin.lexer.KtTokens.*
 import org.jetbrains.kotlin.name.*
 import org.jetbrains.kotlin.psi.*
@@ -107,6 +108,8 @@ open class PsiRawFirBuilder(
             val stubBasedElement = this as? StubBasedPsiElement<*>
             return stubBasedElement?.iElementType ?: node.elementType
         }
+
+    override fun IElementType.toTokenId(): Int = kmpId()
 
     override fun IElementType.isPlus(): Boolean = this == PLUS
     override fun IElementType.isMinus(): Boolean = this == MINUS
@@ -559,10 +562,10 @@ open class PsiRawFirBuilder(
         }
 
         private fun isCallTheFirstStatement(psi: PsiElement): Boolean =
-            isCallTheFirstStatement(psi, { it.elementType }, { it.allChildren.toList() })
+            isCallTheFirstStatement(psi, { it.elementType.toTokenId() }, { it.allChildren.toList() })
 
         private fun functionCallHasLabel(psi: PsiElement): Boolean =
-            firstFunctionCallInBlockHasLambdaArgumentWithLabel(psi, { it.elementType }, { it.allChildren.toList() })
+            firstFunctionCallInBlockHasLambdaArgumentWithLabel(psi, { it.elementType.toTokenId() }, { it.allChildren.toList() })
 
         private fun ValueArgument.toFirExpression(): FirExpression {
             val name = this.getArgumentName()?.asName
@@ -2030,7 +2033,7 @@ open class PsiRawFirBuilder(
                     }
                     val firTypeParameters = classOrObject.convertTypeParameters(classSymbol)
 
-                    withCapturedTypeParameters(
+                    context.withCapturedTypeParameters(
                         status = status.isInner || isLocal,
                         declarationSource = sourceElement,
                         currentFirTypeParameters = firTypeParameters,
@@ -2376,7 +2379,7 @@ open class PsiRawFirBuilder(
                         )
                     }
 
-                    withCapturedTypeParameters(true, functionSource, typeParameters) {
+                    context.withCapturedTypeParameters(true, functionSource, typeParameters) {
                         val outerContractDescription = function.obtainContractDescription()
                         val [body, innerContractDescription] = this@PsiRawFirBuilder.context.withForcedLocalContext {
                             function.buildFirBody()
@@ -2716,7 +2719,7 @@ open class PsiRawFirBuilder(
                             dispatchReceiverType = currentDispatchReceiverType()
                         }
                         extractTypeParametersTo(this, symbol)
-                        withCapturedTypeParameters(true, propertySource, this.typeParameters) {
+                        context.withCapturedTypeParameters(true, propertySource, this.typeParameters) {
                             backingField = this@toFirProperty.fieldDeclaration.toFirBackingField(
                                 this@toFirProperty,
                                 propertySymbol = symbol,

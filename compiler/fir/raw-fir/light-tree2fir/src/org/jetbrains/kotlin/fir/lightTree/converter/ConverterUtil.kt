@@ -59,15 +59,3 @@ inline fun isClassLocal(classNode: LighterASTNode, getParent: LighterASTNode.() 
     }
     return false
 }
-
-fun isCallableLocal(callableNode: LighterASTNode, getParent: LighterASTNode.() -> LighterASTNode?): Boolean {
-    val parentNode = callableNode.getParent()
-    return when (parentNode?.tokenType) {
-        FILE, CLASS_BODY -> false
-        BLOCK -> when (parentNode.getParent()?.tokenType) {
-            SCRIPT -> false
-            else -> true
-        }
-        else -> true
-    }
-}

@@ -187,6 +187,28 @@ class Context<T> {
         }
     }
 
+    inline fun <T> withCapturedTypeParameters(
+        status: Boolean,
+        declarationSource: KtSourceElement? = null,
+        currentFirTypeParameters: List<FirTypeParameterRef>,
+        block: () -> T,
+    ): T {
+        addCapturedTypeParameters(status, declarationSource, currentFirTypeParameters)
+        return try {
+            block()
+        } finally {
+            popFirTypeParameters()
+        }
+    }
+
+    fun addCapturedTypeParameters(
+        status: Boolean,
+        declarationSource: KtSourceElement?,
+        currentFirTypeParameters: List<FirTypeParameterRef>,
+    ) {
+        pushFirTypeParameters(status, currentFirTypeParameters)
+    }
+
     /**
      * This property will be stored in [_containerSymbolStack] instead the next symbol.
      * If the stack is already not empty, symbols that are added on top won't be replaced.

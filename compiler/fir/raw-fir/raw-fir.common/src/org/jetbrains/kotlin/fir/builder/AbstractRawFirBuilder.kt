@@ -86,13 +86,10 @@ abstract class AbstractRawFirBuilder<Node : Any, Type : Any>(
         }
     }
 
-    abstract val Node.asText: String
-    abstract fun Node.getReferencedNameAsName(): Name
     abstract fun Node.getLabelName(): String?
     abstract fun Node.getExpressionInParentheses(): Node?
     abstract fun Node.getAnnotatedExpression(): Node?
     abstract fun Node.getLabeledExpression(): Node?
-    abstract fun Node.getChildNodeByType(type: Type): Node?
     abstract val Node?.receiverExpression: Node?
     abstract val Node?.selectorExpression: Node?
     abstract val Node?.arrayExpression: Node?
@@ -101,20 +98,6 @@ abstract class AbstractRawFirBuilder<Node : Any, Type : Any>(
 
     fun registerSelfType(selfType: FirResolvedTypeRef) {
         context.dispatchReceiverTypesStack.add(selfType.coneType as ConeClassLikeType)
-    }
-
-    protected inline fun <T> withCapturedTypeParameters(
-        status: Boolean,
-        declarationSource: KtSourceElement? = null,
-        currentFirTypeParameters: List<FirTypeParameterRef>,
-        block: () -> T,
-    ): T {
-        addCapturedTypeParameters(status, declarationSource, currentFirTypeParameters)
-        return try {
-            block()
-        } finally {
-            context.popFirTypeParameters()
-        }
     }
 
     inline fun <T> withContainerScriptSymbol(
@@ -157,14 +140,6 @@ abstract class AbstractRawFirBuilder<Node : Any, Type : Any>(
 
     val isDirectlyInsideCompanionBlock: Boolean
         get() = context.currentCompanionBlockOwnerOrNull.let { it != null && it == context.containerSymbolIfAny }
-
-    protected open fun addCapturedTypeParameters(
-        status: Boolean,
-        declarationSource: KtSourceElement?,
-        currentFirTypeParameters: List<FirTypeParameterRef>,
-    ) {
-        context.pushFirTypeParameters(status, currentFirTypeParameters)
-    }
 
     fun callableIdForName(name: Name): CallableId =
         when {
@@ -1183,7 +1158,7 @@ abstract class AbstractRawFirBuilder<Node : Any, Type : Any>(
         else -> null
     }
 
-    protected enum class ForbiddenLabelKind {
+    enum class ForbiddenLabelKind {
         UNDERSCORE_IS_RESERVED, MULTIPLE_LABEL
     }
 

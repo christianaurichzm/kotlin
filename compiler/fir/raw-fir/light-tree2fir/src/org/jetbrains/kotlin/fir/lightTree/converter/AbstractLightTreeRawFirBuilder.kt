@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.KtNodeTypes.BOOLEAN_CONSTANT
 import org.jetbrains.kotlin.KtNodeTypes.NULL
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.builder.Context
+import org.jetbrains.kotlin.kmp.utils.kmpId
 import org.jetbrains.kotlin.lexer.KtTokens.*
 import org.jetbrains.kotlin.lexer.KtTokens.VARARG_KEYWORD
 
@@ -40,6 +41,8 @@ abstract class AbstractLightTreeRawFirBuilder(
 
     override val LighterASTNode.elementType: IElementType
         get() = this.tokenType
+
+    override fun IElementType.toTokenId(): Int = kmpId()
 
     override fun IElementType.isPlus(): Boolean = this == PLUS
     override fun IElementType.isMinus(): Boolean = this == MINUS
@@ -78,6 +81,13 @@ abstract class AbstractLightTreeRawFirBuilder(
         }
 
         return null
+    }
+
+    override fun LighterASTNode.getChildren(): List<LighterASTNode> {
+        val children = Ref<Array<LighterASTNode?>>()
+        val count = tree.getChildren(this, children)
+        @Suppress("UNCHECKED_CAST")
+        return if (count > 0) children.get().take(count) as List<LighterASTNode> else emptyList()
     }
 
     fun LighterASTNode.getChildExpression(): LighterASTNode? = getFirstChildExpression()
@@ -141,7 +151,7 @@ abstract class AbstractLightTreeRawFirBuilder(
 
     override fun LighterASTNode.getVarargKeyword(): LighterASTNode? = getChildNodeByType(VARARG_KEYWORD)
 
-    fun LighterASTNode.getParent(): LighterASTNode? {
+    override fun LighterASTNode.getParent(): LighterASTNode? {
         return tree.getParent(this)
     }
 

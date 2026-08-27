@@ -62,21 +62,21 @@ class LightTreeRawFirExpressionBuilder(
     tree: FlyweightCapableTreeStructure<LighterASTNode>,
     private val declarationBuilder: LightTreeRawFirDeclarationBuilder,
     context: Context<LighterASTNode> = Context(),
-) : AbstractLightTreeRawFirBuilder(session, tree, context) {
+) : AbstractLightTreeRawFirBuilder(session, tree, context), TreeExpressionConverter<LighterASTNode> {
 
-    internal inline fun <reified R : FirExpression> getAsFirExpression(
+    override fun <R : FirExpression> getAsFirExpression(
         expression: LighterASTNode,
-        errorReason: String = "",
-        isValidExpression: (R) -> Boolean = { !it.isStatementLikeExpression },
+        errorReason: String,
+        isValidExpression: (R) -> Boolean,
     ): R {
         return getAsFirExpression(expression, errorReason, expression, isValidExpression)
     }
 
-    internal inline fun <reified R : FirExpression> getAsFirExpression(
+    override fun <R : FirExpression> getAsFirExpression(
         expression: LighterASTNode?,
-        errorReason: String = "",
+        errorReason: String,
         sourceWhenInvalidExpression: LighterASTNode,
-        isValidExpression: (R) -> Boolean = { !it.isStatementLikeExpression },
+        isValidExpression: (R) -> Boolean,
     ): R {
         val converted = expression?.let { getAsFirStatement(it, errorReason) }
 
@@ -116,56 +116,56 @@ class LightTreeRawFirExpressionBuilder(
     }
 
     /*****    EXPRESSIONS    *****/
-    fun getAsFirStatement(expression: LighterASTNode, errorReason: String = ""): FirStatement {
-        return when (expression.tokenType) {
+    override fun getAsFirStatement(node: LighterASTNode, errorReason: String): FirStatement {
+        return when (node.tokenType) {
             // Always FirExpression
-            LAMBDA_EXPRESSION -> convertLambdaExpression(expression)
-            BINARY_WITH_TYPE, IS_EXPRESSION -> convertBinaryWithTypeRHSExpression(expression)
-            PREFIX_EXPRESSION, POSTFIX_EXPRESSION -> convertUnaryExpression(expression)
-            CLASS_LITERAL_EXPRESSION -> convertClassLiteralExpression(expression)
-            CALLABLE_REFERENCE_EXPRESSION -> convertCallableReferenceExpression(expression)
-            in QUALIFIED_ACCESS -> convertQualifiedExpression(expression)
-            CALL_EXPRESSION -> convertCallExpression(expression)
-            WHEN -> convertWhenExpression(expression)
-            ARRAY_ACCESS_EXPRESSION -> convertArrayAccessExpression(expression)
-            COLLECTION_LITERAL_EXPRESSION -> convertCollectionLiteralExpression(expression)
-            STRING_TEMPLATE -> convertStringTemplate(expression)
-            in CONSTANT_EXPRESSIONS -> convertConstantExpression(expression)
-            REFERENCE_EXPRESSION -> convertSimpleNameExpression(expression)
-            FOR -> convertFor(expression) // FirBlock
-            TRY -> convertTryExpression(expression)
-            IF -> convertIfExpression(expression)
-            BREAK, CONTINUE -> convertLoopJump(expression)
-            RETURN -> convertReturn(expression)
-            THROW -> convertThrow(expression)
+            LAMBDA_EXPRESSION -> convertLambdaExpression(node)
+            BINARY_WITH_TYPE, IS_EXPRESSION -> convertBinaryWithTypeRHSExpression(node)
+            PREFIX_EXPRESSION, POSTFIX_EXPRESSION -> convertUnaryExpression(node)
+            CLASS_LITERAL_EXPRESSION -> convertClassLiteralExpression(node)
+            CALLABLE_REFERENCE_EXPRESSION -> convertCallableReferenceExpression(node)
+            in QUALIFIED_ACCESS -> convertQualifiedExpression(node)
+            CALL_EXPRESSION -> convertCallExpression(node)
+            WHEN -> convertWhenExpression(node)
+            ARRAY_ACCESS_EXPRESSION -> convertArrayAccessExpression(node)
+            COLLECTION_LITERAL_EXPRESSION -> convertCollectionLiteralExpression(node)
+            STRING_TEMPLATE -> convertStringTemplate(node)
+            in CONSTANT_EXPRESSIONS -> convertConstantExpression(node)
+            REFERENCE_EXPRESSION -> convertSimpleNameExpression(node)
+            FOR -> convertFor(node) // FirBlock
+            TRY -> convertTryExpression(node)
+            IF -> convertIfExpression(node)
+            BREAK, CONTINUE -> convertLoopJump(node)
+            RETURN -> convertReturn(node)
+            THROW -> convertThrow(node)
             PARENTHESIZED -> {
-                val content = expression.getExpressionInParentheses()
-                context.forwardLabelUsagePermission(expression, content)
-                getAsFirExpression(content, "Empty parentheses", sourceWhenInvalidExpression = expression)
+                val content = node.getExpressionInParentheses()
+                context.forwardLabelUsagePermission(node, content)
+                getAsFirExpression(content, "Empty parentheses", sourceWhenInvalidExpression = node)
             }
             PROPERTY_DELEGATE, INDICES, CONDITION, LOOP_RANGE ->
-                getAsFirExpression(expression.getChildExpression(), errorReason, sourceWhenInvalidExpression = expression)
-            THIS_EXPRESSION -> convertThisExpression(expression)
-            SUPER_EXPRESSION -> convertSuperExpression(expression)
-            OBJECT_LITERAL -> declarationBuilder.convertObjectLiteral(expression)
-            DESTRUCTURING_DECLARATION -> declarationBuilder.convertDestructingDeclaration(expression)
+                getAsFirExpression(node.getChildExpression(), errorReason, sourceWhenInvalidExpression = node)
+            THIS_EXPRESSION -> convertThisExpression(node)
+            SUPER_EXPRESSION -> convertSuperExpression(node)
+            OBJECT_LITERAL -> declarationBuilder.convertObjectLiteral(node)
+            DESTRUCTURING_DECLARATION -> declarationBuilder.convertDestructingDeclaration(node)
                 .toFirDestructingDeclaration(this, baseModuleData) // FirBlock
 
             // Sometimes non-expression FirStatement
-            BINARY_EXPRESSION -> convertBinaryExpression(expression)
-            LABELED_EXPRESSION -> convertLabeledExpression(expression)
-            ANNOTATED_EXPRESSION -> convertAnnotatedExpression(expression)
-            FUN -> declarationBuilder.convertFunctionDeclaration(expression)
+            BINARY_EXPRESSION -> convertBinaryExpression(node)
+            LABELED_EXPRESSION -> convertLabeledExpression(node)
+            ANNOTATED_EXPRESSION -> convertAnnotatedExpression(node)
+            FUN -> declarationBuilder.convertFunctionDeclaration(node)
 
             // Always non-expression FirStatement
-            DO_WHILE -> convertDoWhile(expression)
-            WHILE -> convertWhile(expression)
-            PROPERTY -> declarationBuilder.convertPropertyDeclaration(expression)
-            CLASS, OBJECT_DECLARATION -> declarationBuilder.convertClass(expression)
-            TYPEALIAS -> declarationBuilder.convertTypeAlias(expression)
+            DO_WHILE -> convertDoWhile(node)
+            WHILE -> convertWhile(node)
+            PROPERTY -> declarationBuilder.convertPropertyDeclaration(node)
+            CLASS, OBJECT_DECLARATION -> declarationBuilder.convertClass(node)
+            TYPEALIAS -> declarationBuilder.convertTypeAlias(node)
 
             else -> buildErrorExpression(
-                expression.toFirSourceElement(KtFakeSourceElementKind.ErrorTypeRef),
+                node.toFirSourceElement(KtFakeSourceElementKind.ErrorTypeRef),
                 ConeSimpleDiagnostic(errorReason, DiagnosticKind.ExpressionExpected)
             )
         }
@@ -245,7 +245,7 @@ class LightTreeRawFirExpressionBuilder(
                 }
             }
 
-            body = withForcedLocalContext {
+            body = context.withForcedLocalContext {
                 if (block != null) {
                     val kind = runIf(destructuringStatements.isNotEmpty()) {
                         KtFakeSourceElementKind.LambdaDestructuringBlock
@@ -705,22 +705,22 @@ class LightTreeRawFirExpressionBuilder(
             }
         }
 
-        return when (firSelector) {
+        return when (val selector = firSelector) {
             is FirQualifiedAccessExpression -> {
                 if (isSafe) {
                     @OptIn(FirImplementationDetail::class)
-                    firSelector.replaceSource(dotQualifiedExpression.toFirSourceElement(KtFakeSourceElementKind.DesugaredSafeCallExpression))
-                    return firSelector.createSafeCall(
+                    selector.replaceSource(dotQualifiedExpression.toFirSourceElement(KtFakeSourceElementKind.DesugaredSafeCallExpression))
+                    return selector.createSafeCall(
                         firReceiver!!,
                         dotQualifiedExpression.toFirSourceElement()
                     )
                 }
-                convertFirSelector(firSelector, dotQualifiedExpression.toFirSourceElement(), firReceiver!!)
+                convertFirSelector(selector, dotQualifiedExpression.toFirSourceElement(), firReceiver!!)
             }
             is FirErrorExpression if firReceiver != null -> {
                 buildQualifiedErrorAccessExpression {
                     this.receiver = firReceiver
-                    this.selector = firSelector
+                    this.selector = selector
                     source = dotQualifiedExpression.toFirSourceElement()
                     diagnostic = ConeSyntaxDiagnostic("Qualified expression with unexpected selector")
                 }
@@ -1461,19 +1461,20 @@ class LightTreeRawFirExpressionBuilder(
     private fun convertCatchClause(catchClause: LighterASTNode): Triple<ValueParameter?, FirBlock, KtLightSourceElement>? {
         var valueParameter: ValueParameter? = null
         var blockNode: LighterASTNode? = null
+        var emptyValueParameterList = false
         catchClause.forEachChildren {
             when (it.tokenType) {
                 VALUE_PARAMETER_LIST -> valueParameter = declarationBuilder.convertValueParameters(
                     valueParameters = it,
                     FirAnonymousFunctionSymbol(),
                     ValueParameterDeclaration.CATCH
-                ).firstOrNull()
-                    ?: return null
+                ).firstOrNull() ?: run { emptyValueParameterList = true; null }
 
                 BLOCK -> blockNode = it
             }
         }
 
+        if (emptyValueParameterList) return null
         return Triple(valueParameter, declarationBuilder.convertBlock(blockNode), catchClause.toFirSourceElement())
     }
 
