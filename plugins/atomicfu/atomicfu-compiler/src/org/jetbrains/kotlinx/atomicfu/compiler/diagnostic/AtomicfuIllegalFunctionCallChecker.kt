@@ -16,7 +16,6 @@ import org.jetbrains.kotlin.fir.expressions.toResolvedCallableSymbol
 import org.jetbrains.kotlin.fir.types.classId
 import org.jetbrains.kotlin.fir.types.resolvedType
 import org.jetbrains.kotlin.name.StandardClassIds
-import org.jetbrains.kotlin.text
 
 object AtomicfuIllegalFunctionCallChecker : FirFunctionCallChecker(MppCheckerKind.Common) {
     context(context: CheckerContext, reporter: DiagnosticReporter)
@@ -34,11 +33,7 @@ object AtomicfuIllegalFunctionCallChecker : FirFunctionCallChecker(MppCheckerKin
             if (expression.argumentList.arguments.isNotEmpty()) return
         }
 
-        reporter.reportOn(
-            expression.source,
-            AtomicfuErrors.ATOMIC_DOES_NOT_INHERIT_FUNCTIONS_FROM_ANY,
-            expression.source.text.toString()
-        )
+        reporter.reportOn(expression.source, AtomicfuErrors.ATOMIC_DOES_NOT_INHERIT_FUNCTIONS_FROM_ANY)
     }
 
 }

@@ -95,7 +95,7 @@ object AtomicfuErrorMessages : BaseDiagnosticRendererFactory() {
         "Atomic properties can only be accessed as receivers of atomic operations: `''{0}''`."
 
     private const val ATOMIC_DOES_NOT_INHERIT_FUNCTIONS_FROM_ANY_MESSAGE =
-        "Atomic types do not inherit equals/hashCode/toString functions from Any: `''{0}''`."
+        "Calling equals/hashCode/toString functions on atomic properties is not supported."
 
     override val MAP: KtDiagnosticFactoryToRendererMap by KtDiagnosticFactoryToRendererMap("Atomicfu Plugin") { map ->
         map.put(
@@ -141,7 +141,7 @@ object AtomicfuErrorMessages : BaseDiagnosticRendererFactory() {
             AtomicfuErrors.ATOMIC_PROPERTY_ACCESS_WITHOUT_OPERATION, ATOMIC_PROPERTY_ACCESS_WITHOUT_OPERATION_MESSAGE, Renderers.TO_STRING
         )
         map.put(
-            AtomicfuErrors.ATOMIC_DOES_NOT_INHERIT_FUNCTIONS_FROM_ANY, ATOMIC_DOES_NOT_INHERIT_FUNCTIONS_FROM_ANY_MESSAGE, Renderers.TO_STRING
+            AtomicfuErrors.ATOMIC_DOES_NOT_INHERIT_FUNCTIONS_FROM_ANY, ATOMIC_DOES_NOT_INHERIT_FUNCTIONS_FROM_ANY_MESSAGE
         )
     }
 
