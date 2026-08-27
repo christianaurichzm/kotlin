@@ -40,7 +40,7 @@ private val KtElement.nonContainerParent: KtElement?
     }
 
 private fun KtSimpleNameExpression.typeIsValidForLocalLookup(): Boolean =
-    this !is KtOperationReferenceExpression
+    this !is KtOperationReferenceExpression && this !is KtLabelReferenceExpression
 
 /**
  * Returns the kind of context in which a local lookup is performed.
