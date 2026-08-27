@@ -381,6 +381,10 @@ private class LocalReferenceTargetLookupVisitor(val element: KtSimpleNameExpress
         accessor.valueParameters.processMany(::processParameter)
     }
 
+    override fun visitCatchSection(catchClause: KtCatchClause) {
+        catchClause.parameterList?.parameters?.processMany(::processParameter)
+    }
+
     private inline fun <T> Iterable<T>.processMany(f: (T) -> Unit) {
         if (_found != null) return
 
