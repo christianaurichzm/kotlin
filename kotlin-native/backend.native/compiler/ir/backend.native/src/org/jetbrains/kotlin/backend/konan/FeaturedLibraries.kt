@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.cli.CliDiagnostics
 import org.jetbrains.kotlin.cli.report
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
+import org.jetbrains.kotlin.descriptors.konan.isNativeStdlib
 import org.jetbrains.kotlin.konan.config.exportedLibraries
 import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.konan.library.isImplicitlyLoadedFromKotlinNativeDistribution
@@ -19,7 +20,16 @@ import org.jetbrains.kotlin.library.metadata.resolver.KotlinLibraryResolveResult
 import org.jetbrains.kotlin.library.toUnresolvedLibraries
 
 internal fun ModuleDescriptor.getExportedDependencies(config: NativeSecondStageCompilationConfig): List<ModuleDescriptor> =
+    if (config.produce.isObjCCache) {
+        allDependencyModules.filter {
+            when (val origin = it.klibModuleOrigin) {
+                CurrentKlibModuleOrigin, SyntheticModulesOrigin -> false
+                is DeserializedKlibModuleOrigin -> !it.isNativeStdlib()
+            }
+        }
+    } else {
         getDescriptorsFromLibraries((config.exportedLibraries + config.includedLibraries).toSet())
+    }
 
 internal fun ModuleDescriptor.getIncludedLibraryDescriptors(config: NativeSecondStageCompilationConfig): List<ModuleDescriptor> =
         getDescriptorsFromLibraries(config.includedLibraries.toSet())

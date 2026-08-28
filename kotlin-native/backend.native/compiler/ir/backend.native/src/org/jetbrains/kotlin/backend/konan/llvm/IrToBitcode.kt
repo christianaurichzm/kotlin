@@ -347,8 +347,10 @@ internal class CodeGeneratorVisitor(
     override fun visitModuleFragment(declaration: IrModuleFragment) {
         context.log{"visitModule                    : ${ir2string(declaration)}"}
 
-        initializeCachedBoxes(generationState)
-        declaration.acceptChildrenVoid(this)
+        if (context.config.produce != CompilerOutputKind.OBJC_CACHE) {
+            initializeCachedBoxes(generationState)
+            declaration.acceptChildrenVoid(this)
+        }
 
         runAndProcessInitializers(null) {
             // Note: it is here because it also generates some bitcode.
@@ -364,7 +366,9 @@ internal class CodeGeneratorVisitor(
             }
         }
 
-        appendStaticInitializers()
+        if (context.config.produce != CompilerOutputKind.OBJC_CACHE) {
+            appendStaticInitializers()
+        }
     }
 
     //-------------------------------------------------------------------------//
