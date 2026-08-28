@@ -209,6 +209,31 @@ class Context<T> {
         pushFirTypeParameters(status, currentFirTypeParameters)
     }
 
+    inline fun withCompanionBlock(block: () -> Unit) {
+        val oldValue = currentCompanionBlockOwnerOrNull
+        currentCompanionBlockOwnerOrNull = containerSymbolIfAny
+        try {
+            block()
+        } finally {
+            currentCompanionBlockOwnerOrNull = oldValue
+        }
+    }
+
+    inline fun <T> withContainerScriptSymbol(
+        symbol: FirScriptSymbol,
+        block: () -> T,
+    ): T {
+        require(containingScriptSymbol == null) { "Nested scripts are not supported" }
+        containingScriptSymbol = symbol
+        pushContainerSymbol(symbol)
+        return try {
+            block()
+        } finally {
+            popContainerSymbol(symbol)
+            containingScriptSymbol = null
+        }
+    }
+
     /**
      * This property will be stored in [_containerSymbolStack] instead the next symbol.
      * If the stack is already not empty, symbols that are added on top won't be replaced.

@@ -62,21 +62,21 @@ class LightTreeRawFirExpressionBuilder(
     tree: FlyweightCapableTreeStructure<LighterASTNode>,
     private val declarationBuilder: LightTreeRawFirDeclarationBuilder,
     context: Context<LighterASTNode> = Context(),
-) : AbstractLightTreeRawFirBuilder(session, tree, context), TreeExpressionConverter<LighterASTNode> {
+) : AbstractLightTreeRawFirBuilder(session, tree, context) {
 
-    override fun <R : FirExpression> getAsFirExpression(
+    internal inline fun <reified R : FirExpression> getAsFirExpression(
         expression: LighterASTNode,
-        errorReason: String,
-        isValidExpression: (R) -> Boolean,
+        errorReason: String = "",
+        isValidExpression: (R) -> Boolean = { !it.isStatementLikeExpression },
     ): R {
         return getAsFirExpression(expression, errorReason, expression, isValidExpression)
     }
 
-    override fun <R : FirExpression> getAsFirExpression(
+    internal inline fun <reified R : FirExpression> getAsFirExpression(
         expression: LighterASTNode?,
-        errorReason: String,
+        errorReason: String = "",
         sourceWhenInvalidExpression: LighterASTNode,
-        isValidExpression: (R) -> Boolean,
+        isValidExpression: (R) -> Boolean = { !it.isStatementLikeExpression },
     ): R {
         val converted = expression?.let { getAsFirStatement(it, errorReason) }
 
@@ -116,7 +116,7 @@ class LightTreeRawFirExpressionBuilder(
     }
 
     /*****    EXPRESSIONS    *****/
-    override fun getAsFirStatement(node: LighterASTNode, errorReason: String): FirStatement {
+    fun getAsFirStatement(node: LighterASTNode, errorReason: String = ""): FirStatement {
         return when (node.tokenType) {
             // Always FirExpression
             LAMBDA_EXPRESSION -> convertLambdaExpression(node)
@@ -398,7 +398,7 @@ class LightTreeRawFirExpressionBuilder(
             in OperatorConventions.IN_OPERATIONS ->
                 return rightArgAsFir.generateContainsOperation(leftArgAsFir, operationToken == NOT_IN, baseSource, operationReferenceSource)
             in OperatorConventions.COMPARISON_OPERATIONS ->
-                return leftArgAsFir.generateComparisonExpression(rightArgAsFir, operationToken, baseSource, operationReferenceSource)
+                return leftArgAsFir.generateComparisonExpression(rightArgAsFir, operationToken.toTokenId(), baseSource, operationReferenceSource)
         }
         val conventionCallName = operationToken.toBinaryName()
         return if (conventionCallName != null || operationToken == IDENTIFIER) {
@@ -549,7 +549,7 @@ class LightTreeRawFirExpressionBuilder(
                     ) { getAsFirExpression(this) }
                 }
                 val receiver = getAsFirExpression<FirExpression>(argument, "No operand", sourceWhenInvalidExpression = unaryExpression)
-                convertUnaryPlusMinusCallOnIntegerLiteralIfNecessary(unaryExpression, receiver, operationToken)?.let { return it }
+                convertUnaryPlusMinusCallOnIntegerLiteralIfNecessary(unaryExpression, receiver, operationToken.toTokenId())?.let { return it }
                 buildFunctionCall {
                     source = unaryExpression.toFirSourceElement()
                     calleeReference = buildSimpleNamedReference {
@@ -856,11 +856,11 @@ class LightTreeRawFirExpressionBuilder(
      * @see org.jetbrains.kotlin.parsing.KotlinExpressionParsing.parseStringTemplate
      */
     private fun convertStringTemplate(stringTemplate: LighterASTNode): FirExpression {
-        val children = stringTemplate.getChildrenAsArray()
+        val children = stringTemplate.getChildren()
         return children.toInterpolatingCall(
             stringTemplate,
             convertTemplateEntry = { convertShortOrLongStringTemplate(it) },
-            prefix = { children.firstOrNull { it?.tokenType == STRING_INTERPOLATION_PREFIX }?.asText ?: "" }
+            prefix = { children.firstOrNull { it.tokenType == STRING_INTERPOLATION_PREFIX }?.asText ?: "" }
         )
     }
 

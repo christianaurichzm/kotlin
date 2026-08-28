@@ -5,127 +5,32 @@
 
 package org.jetbrains.kotlin.fir.lightTree.converter
 
-import com.intellij.psi.TokenType
+import com.google.common.collect.ImmutableBiMap
 import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.KtLightSourceElement
 import org.jetbrains.kotlin.KtSourceElement
+import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.EffectiveVisibility
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
-import org.jetbrains.kotlin.fir.FirContractViolation
-import org.jetbrains.kotlin.fir.FirElement
-import org.jetbrains.kotlin.fir.FirExpressionRef
-import org.jetbrains.kotlin.fir.FirFunctionTarget
-import org.jetbrains.kotlin.fir.FirImplementationDetail
-import org.jetbrains.kotlin.fir.FirLoopTarget
-import org.jetbrains.kotlin.fir.FirModuleData
+import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.analysis.NodeTypeAnalyzer
-import org.jetbrains.kotlin.fir.buildWhenSubjectAccess
+import org.jetbrains.kotlin.fir.builder.*
 import org.jetbrains.kotlin.fir.builder.AbstractRawFirBuilder.ForbiddenLabelKind
 import org.jetbrains.kotlin.fir.builder.AbstractRawFirBuilder.ValueParameterDeclaration
-import org.jetbrains.kotlin.fir.builder.CalleeAndReceiver
-import org.jetbrains.kotlin.fir.builder.Context
-import org.jetbrains.kotlin.fir.builder.asReceiverParameter
-import org.jetbrains.kotlin.fir.builder.buildLabel
-import org.jetbrains.kotlin.fir.builder.createSafeCall
-import org.jetbrains.kotlin.fir.builder.generateComparisonExpression
-import org.jetbrains.kotlin.fir.builder.generateContainsOperation
-import org.jetbrains.kotlin.fir.builder.generateLazyLogicalOperation
-import org.jetbrains.kotlin.fir.builder.generateNotNullOrOther
-import org.jetbrains.kotlin.fir.builder.generateResolvedAccessExpression
-import org.jetbrains.kotlin.fir.builder.guardedBy
-import org.jetbrains.kotlin.fir.builder.pullUpSafeCallIfNecessary
-import org.jetbrains.kotlin.fir.builder.toBinaryName
-import org.jetbrains.kotlin.fir.builder.toFirOperation
-import org.jetbrains.kotlin.fir.builder.toUnaryName
-import org.jetbrains.kotlin.fir.copy
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
-import org.jetbrains.kotlin.fir.declarations.FirReplSnippet
-import org.jetbrains.kotlin.fir.declarations.FirScript
 import org.jetbrains.kotlin.fir.declarations.FirVariable
-import org.jetbrains.kotlin.fir.declarations.builder.FirReplSnippetBuilder
-import org.jetbrains.kotlin.fir.declarations.builder.FirScriptBuilder
 import org.jetbrains.kotlin.fir.declarations.builder.buildAnonymousFunction
 import org.jetbrains.kotlin.fir.declarations.builder.buildProperty
 import org.jetbrains.kotlin.fir.declarations.builder.buildReceiverParameterCopy
 import org.jetbrains.kotlin.fir.declarations.builder.buildValueParameter
 import org.jetbrains.kotlin.fir.declarations.impl.FirDeclarationStatusImpl
 import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusImpl
-import org.jetbrains.kotlin.fir.diagnostics.ConeNotAnnotationContainer
-import org.jetbrains.kotlin.fir.diagnostics.ConeSimpleDiagnostic
-import org.jetbrains.kotlin.fir.diagnostics.ConeSyntaxDiagnostic
-import org.jetbrains.kotlin.fir.diagnostics.ConeUnsupportedClassLiteralsWithEmptyLhs
-import org.jetbrains.kotlin.fir.diagnostics.DiagnosticKind
-import org.jetbrains.kotlin.fir.expressions.FirAnnotation
-import org.jetbrains.kotlin.fir.expressions.FirAnonymousFunctionExpression
-import org.jetbrains.kotlin.fir.expressions.FirBlock
-import org.jetbrains.kotlin.fir.expressions.FirCallableReferenceAccess
-import org.jetbrains.kotlin.fir.expressions.FirCollectionLiteral
-import org.jetbrains.kotlin.fir.expressions.FirErrorExpression
-import org.jetbrains.kotlin.fir.expressions.FirExpression
-import org.jetbrains.kotlin.fir.expressions.FirFunctionCallOrigin
-import org.jetbrains.kotlin.fir.expressions.FirGetClassCall
-import org.jetbrains.kotlin.fir.expressions.FirLoop
-import org.jetbrains.kotlin.fir.expressions.FirLoopJump
-import org.jetbrains.kotlin.fir.expressions.FirOperation
-import org.jetbrains.kotlin.fir.expressions.FirQualifiedAccessExpression
-import org.jetbrains.kotlin.fir.expressions.FirResolvable
-import org.jetbrains.kotlin.fir.expressions.FirReturnExpression
-import org.jetbrains.kotlin.fir.expressions.FirStatement
-import org.jetbrains.kotlin.fir.expressions.FirSuperReceiverExpression
-import org.jetbrains.kotlin.fir.expressions.FirThisReceiverExpression
-import org.jetbrains.kotlin.fir.expressions.FirThrowExpression
-import org.jetbrains.kotlin.fir.expressions.FirTryExpression
-import org.jetbrains.kotlin.fir.expressions.FirTypeOperatorCall
-import org.jetbrains.kotlin.fir.expressions.FirWhenExpression
-import org.jetbrains.kotlin.fir.expressions.RawFirApi
-import org.jetbrains.kotlin.fir.expressions.buildBinaryArgumentList
-import org.jetbrains.kotlin.fir.expressions.buildErrorExpression
-import org.jetbrains.kotlin.fir.expressions.buildUnaryArgumentList
-import org.jetbrains.kotlin.fir.expressions.builder.FirBlockBuilder
-import org.jetbrains.kotlin.fir.expressions.builder.FirBreakExpressionBuilder
-import org.jetbrains.kotlin.fir.expressions.builder.FirContinueExpressionBuilder
-import org.jetbrains.kotlin.fir.expressions.builder.FirDoWhileLoopBuilder
-import org.jetbrains.kotlin.fir.expressions.builder.FirFunctionCallBuilder
-import org.jetbrains.kotlin.fir.expressions.builder.FirImplicitInvokeCallBuilder
-import org.jetbrains.kotlin.fir.expressions.builder.FirPropertyAccessExpressionBuilder
-import org.jetbrains.kotlin.fir.expressions.builder.FirQualifiedAccessExpressionBuilder
-import org.jetbrains.kotlin.fir.expressions.builder.FirWhileLoopBuilder
-import org.jetbrains.kotlin.fir.expressions.builder.buildAnonymousFunctionExpression
-import org.jetbrains.kotlin.fir.expressions.builder.buildArgumentList
-import org.jetbrains.kotlin.fir.expressions.builder.buildBlock
-import org.jetbrains.kotlin.fir.expressions.builder.buildCallableReferenceAccess
-import org.jetbrains.kotlin.fir.expressions.builder.buildCatch
-import org.jetbrains.kotlin.fir.expressions.builder.buildCheckNotNullCall
-import org.jetbrains.kotlin.fir.expressions.builder.buildCollectionLiteral
-import org.jetbrains.kotlin.fir.expressions.builder.buildElseIfTrueCondition
-import org.jetbrains.kotlin.fir.expressions.builder.buildEmptyExpressionBlock
-import org.jetbrains.kotlin.fir.expressions.builder.buildEqualityOperatorCall
-import org.jetbrains.kotlin.fir.expressions.builder.buildErrorExpression
-import org.jetbrains.kotlin.fir.expressions.builder.buildFunctionCall
-import org.jetbrains.kotlin.fir.expressions.builder.buildGetClassCall
-import org.jetbrains.kotlin.fir.expressions.builder.buildNamedArgumentExpression
-import org.jetbrains.kotlin.fir.expressions.builder.buildPropertyAccessExpression
-import org.jetbrains.kotlin.fir.expressions.builder.buildQualifiedErrorAccessExpression
-import org.jetbrains.kotlin.fir.expressions.builder.buildRegularWhenBranch
-import org.jetbrains.kotlin.fir.expressions.builder.buildReturnExpression
-import org.jetbrains.kotlin.fir.expressions.builder.buildSpreadArgumentExpression
-import org.jetbrains.kotlin.fir.expressions.builder.buildStringConcatenationCall
-import org.jetbrains.kotlin.fir.expressions.builder.buildSuperReceiverExpression
-import org.jetbrains.kotlin.fir.expressions.builder.buildThisReceiverExpression
-import org.jetbrains.kotlin.fir.expressions.builder.buildThrowExpression
-import org.jetbrains.kotlin.fir.expressions.builder.buildTryExpression
-import org.jetbrains.kotlin.fir.expressions.builder.buildTypeOperatorCall
-import org.jetbrains.kotlin.fir.expressions.builder.buildUnitExpression
-import org.jetbrains.kotlin.fir.expressions.builder.buildWhenBranch
-import org.jetbrains.kotlin.fir.expressions.builder.buildWhenExpression
+import org.jetbrains.kotlin.fir.diagnostics.*
+import org.jetbrains.kotlin.fir.expressions.*
+import org.jetbrains.kotlin.fir.expressions.builder.*
 import org.jetbrains.kotlin.fir.expressions.impl.FirSingleExpressionBlock
 import org.jetbrains.kotlin.fir.expressions.impl.buildSingleExpressionBlock
-import org.jetbrains.kotlin.fir.generateTemporaryVariable
-import org.jetbrains.kotlin.fir.isArraySet
-import org.jetbrains.kotlin.fir.isCatchParameter
-import org.jetbrains.kotlin.fir.isForLoopParameter
-import org.jetbrains.kotlin.fir.isStatementLikeExpression
 import org.jetbrains.kotlin.fir.lightTree.fir.ValueParameter
 import org.jetbrains.kotlin.fir.lightTree.fir.WhenEntry
 import org.jetbrains.kotlin.fir.lightTree.fir.addDestructuringStatements
@@ -134,7 +39,6 @@ import org.jetbrains.kotlin.fir.references.buildErrorNamedReferenceWithNoName
 import org.jetbrains.kotlin.fir.references.builder.buildExplicitSuperReference
 import org.jetbrains.kotlin.fir.references.builder.buildExplicitThisReference
 import org.jetbrains.kotlin.fir.references.builder.buildSimpleNamedReference
-import org.jetbrains.kotlin.fir.smartPlus
 import org.jetbrains.kotlin.fir.symbols.impl.FirAnonymousFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirLocalPropertySymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirReceiverParameterSymbol
@@ -146,34 +50,36 @@ import org.jetbrains.kotlin.fir.types.impl.FirImplicitTypeRefImplWithoutSource
 import org.jetbrains.kotlin.kmp.lexer.KtTokens
 import org.jetbrains.kotlin.kmp.parser.KtNodeTypes
 import org.jetbrains.kotlin.kmp.utils.SyntaxElementTypesWithIds
+import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.name.StandardClassIds
-import org.jetbrains.kotlin.types.expressions.OperatorConventions
 import org.jetbrains.kotlin.util.OperatorNameConventions
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
-import org.jetbrains.kotlin.utils.addToStdlib.shouldNotBeCalled
 
 class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
     val analyzer: NodeTypeAnalyzer<Node, Type>,
     val context: Context<Node>,
     val baseModuleData: FirModuleData,
     val headerMode: Boolean,
-) : TreeExpressionConverter<Node>, NodeTypeAnalyzer<Node, Type> by analyzer {
+) : NodeTypeAnalyzer<Node, Type> by analyzer {
+    private val imitateLambdaSuspendModifier: Boolean =
+        baseModuleData.session.languageVersionSettings.supportsFeature(LanguageFeature.ParseLambdaWithSuspendModifier)
+
     lateinit var declarationBuilder: TreeDeclarationConverter<Node>
 
-    override fun <R : FirExpression> getAsFirExpression(
+    internal inline fun <reified R : FirExpression> getAsFirExpression(
         expression: Node,
-        errorReason: String,
-        isValidExpression: (R) -> Boolean,
+        errorReason: String = "",
+        isValidExpression: (R) -> Boolean = { !it.isStatementLikeExpression },
     ): R {
         return getAsFirExpression(expression, errorReason, expression, isValidExpression)
     }
 
-    override fun <R : FirExpression> getAsFirExpression(
+    internal inline fun <reified R : FirExpression> getAsFirExpression(
         expression: Node?,
-        errorReason: String,
+        errorReason: String = "",
         sourceWhenInvalidExpression: Node,
-        isValidExpression: (R) -> Boolean,
+        isValidExpression: (R) -> Boolean = { !it.isStatementLikeExpression },
     ): R {
         val converted = expression?.let { getAsFirStatement(it, errorReason) }
 
@@ -213,7 +119,7 @@ class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
     }
 
     /*****    EXPRESSIONS    *****/
-    override fun getAsFirStatement(node: Node, errorReason: String): FirStatement {
+    fun getAsFirStatement(node: Node, errorReason: String = ""): FirStatement {
         return when (node.elementType.toTokenId()) {
             // Always FirExpression
             KtNodeTypes.LAMBDA_EXPRESSION_ID -> convertLambdaExpression(node)
@@ -221,13 +127,13 @@ class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
             KtNodeTypes.PREFIX_EXPRESSION_ID, KtNodeTypes.POSTFIX_EXPRESSION_ID -> convertUnaryExpression(node)
             KtNodeTypes.CLASS_LITERAL_EXPRESSION_ID -> convertClassLiteralExpression(node)
             KtNodeTypes.CALLABLE_REFERENCE_EXPRESSION_ID -> convertCallableReferenceExpression(node)
-            in QUALIFIED_ACCESS_IDS -> convertQualifiedExpression(node)
+            in qualifiedAccessesId -> convertQualifiedExpression(node)
             KtNodeTypes.CALL_EXPRESSION_ID -> convertCallExpression(node)
             KtNodeTypes.WHEN_ID -> convertWhenExpression(node)
             KtNodeTypes.ARRAY_ACCESS_EXPRESSION_ID -> convertArrayAccessExpression(node)
             KtNodeTypes.COLLECTION_LITERAL_EXPRESSION_ID -> convertCollectionLiteralExpression(node)
             KtNodeTypes.STRING_TEMPLATE_ID -> convertStringTemplate(node)
-            in CONSTANT_EXPRESSION_IDS -> convertConstantExpression(node)
+            in constantExpressionsId -> convertConstantExpression(node)
             KtNodeTypes.REFERENCE_EXPRESSION_ID -> convertSimpleNameExpression(node)
             KtNodeTypes.FOR_ID -> convertFor(node) // FirBlock
             KtNodeTypes.TRY_ID -> convertTryExpression(node)
@@ -268,16 +174,6 @@ class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
         }
     }
 
-    private val CONSTANT_EXPRESSION_IDS = setOf(
-        KtNodeTypes.NULL_ID, KtNodeTypes.BOOLEAN_CONSTANT_ID, KtNodeTypes.FLOAT_CONSTANT_ID,
-        KtNodeTypes.CHARACTER_CONSTANT_ID, KtNodeTypes.INTEGER_CONSTANT_ID
-    )
-
-    private val QUALIFIED_ACCESS_IDS = setOf(KtNodeTypes.DOT_QUALIFIED_EXPRESSION_ID, KtNodeTypes.SAFE_ACCESS_EXPRESSION_ID)
-
-    private val IN_OPERATION_IDS = setOf(KtTokens.IN_MODIFIER_ID, KtTokens.NOT_IN_ID)
-
-    private val COMPARISON_OPERATION_IDS = setOf(KtTokens.LT_ID, KtTokens.LTEQ_ID, KtTokens.GTEQ_ID, KtTokens.GT_ID)
     /**
      * @see org.jetbrains.kotlin.parsing.KotlinExpressionParsing.parseFunctionLiteral
      * @see org.jetbrains.kotlin.fir.builder.PsiRawFirBuilder.Visitor.visitLambdaExpression
@@ -446,6 +342,14 @@ class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
         }
     }
 
+    private fun <T> MutableList<T>.pop(): T? {
+        val result = lastOrNull()
+        if (result != null) {
+            removeAt(size - 1)
+        }
+        return result
+    }
+
     /**
      * @see org.jetbrains.kotlin.parsing.KotlinExpressionParsing.parseBinaryExpression
      * @see org.jetbrains.kotlin.fir.builder.PsiRawFirBuilder.Visitor.visitBinaryExpression
@@ -502,12 +406,14 @@ class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
                 return leftArgAsFir.generateNotNullOrOther(rightArgAsFir, baseSource)
             KtTokens.ANDAND_ID, KtTokens.OROR_ID ->
                 return leftArgAsFir.generateLazyLogicalOperation(rightArgAsFir, operationToken == KtTokens.ANDAND_ID, baseSource)
-            in IN_OPERATION_IDS ->
-                return rightArgAsFir.generateContainsOperation(leftArgAsFir, operationToken == KtTokens.NOT_IN_ID, baseSource, operationReferenceSource)
-            in COMPARISON_OPERATION_IDS ->
+            in inOperationsId ->
+                return rightArgAsFir.generateContainsOperation(
+                    leftArgAsFir, operationToken == KtTokens.NOT_IN_ID, baseSource, operationReferenceSource
+                )
+            in comparisonOperationsId ->
                 return leftArgAsFir.generateComparisonExpression(rightArgAsFir, operationToken, baseSource, operationReferenceSource)
         }
-        val conventionCallName = operationToken.toBinaryName()
+        val conventionCallName = ktTokenToBinaryOperationNameMap[operationToken]
         return if (conventionCallName != null || operationToken == KtTokens.IDENTIFIER_ID) {
             buildFunctionCall {
                 source = binaryExpression.toFirSourceElement()
@@ -520,7 +426,7 @@ class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
                 origin = if (conventionCallName != null) FirFunctionCallOrigin.Operator else FirFunctionCallOrigin.Infix
             }
         } else {
-            val firOperation = operationToken.toFirOperation()
+            val firOperation = ktTokenToFirOperationMap.getValue(operationToken)
             if (firOperation in FirOperation.ASSIGNMENTS) {
                 leftArgNode.generateAssignment(
                     binaryExpression.toFirSourceElement(),
@@ -529,7 +435,7 @@ class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
                     firOperation,
                     leftArgAsFir.annotations,
                     rightArgNode,
-                    leftArgNode?.elementType?.toTokenId() in UNWRAPPABLE_TOKEN_TYPES,
+                    leftArgNode?.elementType?.toTokenId() in unwrappableTokenTypes,
                 ) {
                     getAsFirExpression<FirExpression>(
                         this,
@@ -548,9 +454,69 @@ class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
         }
     }
 
-    val UNWRAPPABLE_TOKEN_TYPES: Set<Int> = setOf(
-        KtNodeTypes.PARENTHESIZED_ID, KtNodeTypes.LABELED_EXPRESSION_ID, KtNodeTypes.ANNOTATED_EXPRESSION_ID
-    )
+    companion object {
+        private val unwrappableTokenTypes: Set<Int> = setOf(
+            KtNodeTypes.PARENTHESIZED_ID, KtNodeTypes.LABELED_EXPRESSION_ID, KtNodeTypes.ANNOTATED_EXPRESSION_ID
+        )
+
+        private val constantExpressionsId = setOf(
+            KtNodeTypes.NULL_ID, KtNodeTypes.BOOLEAN_CONSTANT_ID, KtNodeTypes.FLOAT_CONSTANT_ID,
+            KtNodeTypes.CHARACTER_CONSTANT_ID, KtNodeTypes.INTEGER_CONSTANT_ID
+        )
+
+        private val qualifiedAccessesId = setOf(KtNodeTypes.DOT_QUALIFIED_EXPRESSION_ID, KtNodeTypes.SAFE_ACCESS_EXPRESSION_ID)
+
+        private val inOperationsId = setOf(KtTokens.IN_MODIFIER_ID, KtTokens.NOT_IN_ID)
+
+        private val comparisonOperationsId = setOf(KtTokens.LT_ID, KtTokens.LTEQ_ID, KtTokens.GTEQ_ID, KtTokens.GT_ID)
+
+        private val ktTokenToBinaryOperationNameMap: ImmutableBiMap<Int, Name> = ImmutableBiMap.builder<Int, Name>()
+            .put(KtTokens.MUL_ID, OperatorNameConventions.TIMES)
+            .put(KtTokens.PLUS_ID, OperatorNameConventions.PLUS)
+            .put(KtTokens.MINUS_ID, OperatorNameConventions.MINUS)
+            .put(KtTokens.DIV_ID, OperatorNameConventions.DIV)
+            .put(KtTokens.PERC_ID, OperatorNameConventions.REM)
+            .put(KtTokens.RANGE_ID, OperatorNameConventions.RANGE_TO)
+            .put(KtTokens.RANGE_UNTIL_ID, OperatorNameConventions.RANGE_UNTIL)
+            .build()
+
+        private val ktTokenToUnaryOperationNameMap = ImmutableBiMap.builder<Int, Name>()
+            .put(KtTokens.PLUSPLUS_ID, OperatorNameConventions.INC)
+            .put(KtTokens.MINUSMINUS_ID, OperatorNameConventions.DEC)
+            .put(KtTokens.PLUS_ID, OperatorNameConventions.UNARY_PLUS)
+            .put(KtTokens.MINUS_ID, OperatorNameConventions.UNARY_MINUS)
+            .put(KtTokens.EXCL_ID, OperatorNameConventions.NOT)
+            .build()
+
+        private val ktTokenToFirOperationMap = hashMapOf(
+            KtTokens.LT_ID to FirOperation.LT,
+            KtTokens.GT_ID to FirOperation.GT,
+            KtTokens.LTEQ_ID to FirOperation.LT_EQ,
+            KtTokens.GTEQ_ID to FirOperation.GT_EQ,
+            KtTokens.EQEQ_ID to FirOperation.EQ,
+            KtTokens.EXCLEQ_ID to FirOperation.NOT_EQ,
+            KtTokens.EQEQEQ_ID to FirOperation.IDENTITY,
+            KtTokens.EXCLEQEQEQ_ID to FirOperation.NOT_IDENTITY,
+
+            KtTokens.EQ_ID to FirOperation.ASSIGN,
+            KtTokens.PLUSEQ_ID to FirOperation.PLUS_ASSIGN,
+            KtTokens.MINUSEQ_ID to FirOperation.MINUS_ASSIGN,
+            KtTokens.MULTEQ_ID to FirOperation.TIMES_ASSIGN,
+            KtTokens.DIVEQ_ID to FirOperation.DIV_ASSIGN,
+            KtTokens.PERCEQ_ID to FirOperation.REM_ASSIGN,
+
+            KtTokens.IS_KEYWORD_ID to FirOperation.IS,
+            KtTokens.NOT_IS_ID to FirOperation.NOT_IS,
+
+            KtTokens.AS_KEYWORD_ID to FirOperation.AS,
+            KtTokens.AS_SAFE_ID to FirOperation.SAFE_AS,
+        )
+
+        private val incrementOperations: Set<Int> = setOf(
+            KtTokens.PLUSPLUS_ID,
+            KtTokens.MINUSMINUS_ID,
+        )
+    }
 
     /**
      * @see org.jetbrains.kotlin.parsing.KotlinExpressionParsing.Precedence.parseRightHandSide
@@ -571,7 +537,7 @@ class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
 
         return buildTypeOperatorCall {
             source = binaryExpression.toFirSourceElement()
-            operation = operationReference.getOperationTokenId().toFirOperation()
+            operation = ktTokenToFirOperationMap.getValue(operationReference.getOperationTokenId())
             conversionTypeRef = firType
             argumentList = buildUnaryArgumentList(
                 leftArgAsFir ?: buildErrorExpression(binaryExpression.toFirSourceElement(), ConeSyntaxDiagnostic("No left operand"))
@@ -634,7 +600,7 @@ class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
         }
 
         val operationToken = operationReference.getOperationTokenId()
-        val conventionCallName = operationToken.toUnaryName()
+        val conventionCallName = ktTokenToUnaryOperationNameMap.getValue(operationToken)
         return when {
             operationToken == KtTokens.EXCLEXCL_ID -> {
                 buildCheckNotNullCall {
@@ -650,7 +616,7 @@ class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
 
             }
             conventionCallName != null -> {
-                if (operationToken in OperatorConventions.INCREMENT_OPERATIONS) {
+                if (operationToken in incrementOperations) {
                     return generateIncrementOrDecrementBlock(
                         unaryExpression,
                         operationReference,
@@ -1003,25 +969,27 @@ class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
         val whenEntries = mutableListOf<WhenEntry>()
         whenExpression.forEachChildren {
             when (it.elementType.toTokenId()) {
-                KtNodeTypes.PROPERTY_ID -> subjectVariable = (declarationBuilder.convertPropertyDeclaration(it) as FirVariable).let { variable ->
-                    buildProperty {
-                        source = it.toFirSourceElement()
-                        origin = FirDeclarationOrigin.Source
-                        moduleData = baseModuleData
-                        returnTypeRef = variable.returnTypeRef
-                        name = variable.name
-                        initializer = variable.initializer
-                        isVar = false
-                        symbol = FirLocalPropertySymbol()
-                        status = FirDeclarationStatusImpl(Visibilities.Local, Modality.FINAL)
-                        isLocal = true
-                        receiverParameter = variable.receiverParameter?.let { receiverParameter ->
-                            buildReceiverParameterCopy(receiverParameter) {
-                                symbol = FirReceiverParameterSymbol()
-                                containingDeclarationSymbol = this@buildProperty.symbol
+                KtNodeTypes.PROPERTY_ID -> {
+                    subjectVariable = (declarationBuilder.convertPropertyDeclaration(it) as FirVariable).let { variable ->
+                        buildProperty {
+                            source = it.toFirSourceElement()
+                            origin = FirDeclarationOrigin.Source
+                            moduleData = baseModuleData
+                            returnTypeRef = variable.returnTypeRef
+                            name = variable.name
+                            initializer = variable.initializer
+                            isVar = false
+                            symbol = FirLocalPropertySymbol()
+                            status = FirDeclarationStatusImpl(Visibilities.Local, Modality.FINAL)
+                            isLocal = true
+                            receiverParameter = variable.receiverParameter?.let { receiverParameter ->
+                                buildReceiverParameterCopy(receiverParameter) {
+                                    symbol = FirReceiverParameterSymbol()
+                                    containingDeclarationSymbol = this@buildProperty.symbol
+                                }
                             }
+                            annotations += variable.annotations
                         }
-                        annotations += variable.annotations
                     }
                 }
                 KtNodeTypes.DESTRUCTURING_DECLARATION_ID -> subjectExpression =
@@ -1178,7 +1146,7 @@ class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
         var conditionSource: KtLightSourceElement? = null
         whenCondition.forEachChildren {
             when (it.elementType.toTokenId()) {
-                KtNodeTypes.OPERATION_REFERENCE_ID if it.asText == NOT_IN.value -> {
+                KtNodeTypes.OPERATION_REFERENCE_ID if it.getOperationTokenId() == KtTokens.NOT_IN_ID -> {
                     conditionSource = it.toFirSourceElement()
                     isNegate = true
                 }
@@ -1665,7 +1633,7 @@ class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
                 KtNodeTypes.TRY_ID, KtNodeTypes.CATCH_ID -> parent.usedAsExpression
                 KtNodeTypes.THEN_ID, KtNodeTypes.ELSE_ID, KtNodeTypes.WHEN_ENTRY_ID -> parent.getParent()?.usedAsExpression ?: true
                 KtNodeTypes.CLASS_INITIALIZER_ID, KtNodeTypes.SCRIPT_INITIALIZER_ID, KtNodeTypes.SECONDARY_CONSTRUCTOR_ID, KtNodeTypes.FUNCTION_LITERAL_ID, KtNodeTypes.FINALLY_ID -> false
-                KtNodeTypes.FUNCTION_ID, KtNodeTypes.PROPERTY_ACCESSOR_ID -> parent.getChildren().any { it.elementType.toTokenId() == EQ }
+                KtNodeTypes.FUNCTION_ID, KtNodeTypes.PROPERTY_ACCESSOR_ID -> parent.getChildren().any { it.elementType.toTokenId() == KtTokens.EQ_ID }
                 KtNodeTypes.DOT_QUALIFIED_EXPRESSION_ID -> parent.getFirstChild() == this
                 KtNodeTypes.BODY_ID -> when (parent.getParent()?.elementType?.toTokenId()) {
                     KtNodeTypes.FOR_ID, KtNodeTypes.WHILE_ID, KtNodeTypes.DO_WHILE_ID -> false
@@ -1782,7 +1750,7 @@ class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
     /**
      * @see org.jetbrains.kotlin.parsing.KotlinExpressionParsing.parseValueArgumentList
      */
-    override fun convertValueArguments(valueArguments: Node): List<FirExpression> {
+    fun convertValueArguments(valueArguments: Node): List<FirExpression> {
         return valueArguments.forEachChildrenReturnList { node, container ->
             @Suppress("IncorrectFormatting")
             when (node.elementType.toTokenId()) {
@@ -1830,26 +1798,6 @@ class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
         }
     }
 
-    override fun convertScript(
-        script: Node,
-        scriptSource: KtSourceElement,
-        fileName: String,
-        setup: FirScriptBuilder.() -> Unit,
-    ): FirScript {
-        shouldNotBeCalled()
-    }
-
-    override fun convertReplSnippet(
-        script: Node,
-        scriptSource: KtSourceElement,
-        fileName: String,
-        snippetSetup: FirReplSnippetBuilder.() -> Unit,
-        functionBodySetup: FirBlockBuilder.() -> Unit,
-        statementsSetup: MutableList<FirElement>.() -> Unit,
-    ): FirReplSnippet {
-        shouldNotBeCalled()
-    }
-
     private fun Node.isExpression(): Boolean = elementType.toTokenId().isExpression()
 
     private fun Node.getFirstChildExpression(): Node? {
@@ -1860,7 +1808,13 @@ class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
         return getChildren().lastOrNull { it.isExpression() }
     }
 
-    fun Node.getExpressionInParentheses(): Node? = getFirstChildExpression()
+    private fun Node.getExpressionInParentheses(): Node? = getFirstChildExpression()
 
-    fun Node.getLabeledExpression(): Node? = getLastChildExpression()
+    private fun Node.getLabeledExpression(): Node? = getLastChildExpression()
+
+    private fun getForbiddenLabelKind(rawName: String, isMultipleLabel: Boolean): ForbiddenLabelKind? = when {
+        rawName.isUnderscore -> ForbiddenLabelKind.UNDERSCORE_IS_RESERVED
+        isMultipleLabel -> ForbiddenLabelKind.MULTIPLE_LABEL
+        else -> null
+    }
 }

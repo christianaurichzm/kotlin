@@ -217,7 +217,7 @@ fun FirExpression.generateContainsOperation(
 
 fun FirExpression.generateComparisonExpression(
     argument: FirExpression,
-    operatorToken: IElementType,
+    operatorToken: Int,
     baseSource: KtSourceElement?,
     operationReferenceSource: KtSourceElement?,
 ): FirComparisonExpression {
@@ -233,10 +233,10 @@ fun FirExpression.generateComparisonExpression(
     )
 
     val firOperation = when (operatorToken) {
-        KtTokens.LT -> FirOperation.LT
-        KtTokens.GT -> FirOperation.GT
-        KtTokens.LTEQ -> FirOperation.LT_EQ
-        KtTokens.GTEQ -> FirOperation.GT_EQ
+        org.jetbrains.kotlin.kmp.lexer.KtTokens.LT_ID -> FirOperation.LT
+        org.jetbrains.kotlin.kmp.lexer.KtTokens.GT_ID -> FirOperation.GT
+        org.jetbrains.kotlin.kmp.lexer.KtTokens.LTEQ_ID -> FirOperation.LT_EQ
+        org.jetbrains.kotlin.kmp.lexer.KtTokens.GTEQ_ID -> FirOperation.GT_EQ
         else -> error("Unknown $operatorToken")
     }
 

@@ -20,6 +20,7 @@ import org.jetbrains.kotlin.descriptors.Visibility
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget.*
 import org.jetbrains.kotlin.fir.*
+import org.jetbrains.kotlin.fir.analysis.NodeTypeAnalyzer
 import org.jetbrains.kotlin.fir.analysis.firstFunctionCallInBlockHasLambdaArgumentWithLabel
 import org.jetbrains.kotlin.fir.analysis.isCallTheFirstStatement
 import org.jetbrains.kotlin.fir.builder.*
@@ -334,7 +335,7 @@ class LightTreeRawFirDeclarationBuilder(
                 ANNOTATION -> annotations += it
                 ANNOTATION_ENTRY -> annotations += it
                 CONTEXT_PARAMETER_LIST -> contextLists += it
-                is KtModifierKeywordToken -> addModifier(it, isInClass)
+                is KtModifierKeywordToken -> addModifier(it.tokenType.toTokenId(), isInClass)
             }
         }
     }
@@ -814,7 +815,7 @@ class LightTreeRawFirDeclarationBuilder(
     /**
      * @see org.jetbrains.kotlin.parsing.KotlinParsing.parseEnumEntry
      */
-    private fun convertEnumEntry(enumEntry: LighterASTNode, classWrapper: ClassWrapper): FirEnumEntry {
+    private fun convertEnumEntry(enumEntry: LighterASTNode, classWrapper: ClassWrapper<LighterASTNode>): FirEnumEntry {
         var modifiers: ModifierList<LighterASTNode>? = null
         lateinit var identifier: String
         val enumSuperTypeCallEntry = mutableListOf<FirExpression>()
@@ -943,7 +944,7 @@ class LightTreeRawFirDeclarationBuilder(
      * @see org.jetbrains.kotlin.parsing.KotlinParsing.parseClassBody
      * @see org.jetbrains.kotlin.parsing.KotlinParsing.parseEnumClassBody
      */
-    private fun convertClassBody(classBody: LighterASTNode, classWrapper: ClassWrapper?): List<FirDeclaration> {
+    private fun convertClassBody(classBody: LighterASTNode, classWrapper: ClassWrapper<LighterASTNode>?): List<FirDeclaration> {
         val modifierLists = mutableListOf<LighterASTNode>()
         val firDeclarations = classBody.forEachChildrenReturnList { node, container ->
             convertDeclarationFromClassBody(node, container, classWrapper, modifierLists)
@@ -956,7 +957,7 @@ class LightTreeRawFirDeclarationBuilder(
     private fun convertDeclarationFromClassBody(
         node: LighterASTNode,
         container: MutableList<FirDeclaration>,
-        classWrapper: ClassWrapper?,
+        classWrapper: ClassWrapper<LighterASTNode>?,
         modifierLists: MutableList<LighterASTNode>,
     ) {
         when (node.tokenType) {
@@ -976,7 +977,7 @@ class LightTreeRawFirDeclarationBuilder(
             }
             COMPANION_BLOCK -> {
                 classWrapper?.companionBlockCollector?.collect(node.toFirSourceElement(), isNested = isDirectlyInsideCompanionBlock)
-                withCompanionBlock {
+                context.withCompanionBlock {
                     node.getChildNodeByType(CLASS_BODY)?.let { container.addAll(convertClassBody(it, classWrapper)) }
                 }
             }
@@ -1026,7 +1027,7 @@ class LightTreeRawFirDeclarationBuilder(
     private fun convertPrimaryConstructor(
         primaryConstructor: LighterASTNode?,
         selfTypeSource: KtSourceElement?,
-        classWrapper: ClassWrapper,
+        classWrapper: ClassWrapper<LighterASTNode>,
         delegatedConstructorSource: KtLightSourceElement?,
         isEnumEntry: Boolean = false,
         containingClassIsExpectClass: Boolean,
@@ -1054,7 +1055,7 @@ class LightTreeRawFirDeclarationBuilder(
                     VALUE_PARAMETER_LIST -> valueParameters += convertValueParameters(
                         it,
                         constructorSymbol,
-                        ValueParameterDeclaration.PRIMARY_CONSTRUCTOR
+                        NodeTypeAnalyzer.ValueParameterDeclaration.PRIMARY_CONSTRUCTOR
                     )
                 }
             }
@@ -1223,7 +1224,7 @@ class LightTreeRawFirDeclarationBuilder(
     /**
      * @see org.jetbrains.kotlin.parsing.KotlinParsing.parseSecondaryConstructor
      */
-    private fun convertSecondaryConstructor(secondaryConstructor: LighterASTNode, classWrapper: ClassWrapper): FirConstructor {
+    private fun convertSecondaryConstructor(secondaryConstructor: LighterASTNode, classWrapper: ClassWrapper<LighterASTNode>): FirConstructor {
         var modifiers: ModifierList<LighterASTNode>? = null
         val firValueParameters = mutableListOf<ValueParameter>()
         var constructorDelegationCall: FirDelegatedConstructorCall? = null
@@ -1240,7 +1241,7 @@ class LightTreeRawFirDeclarationBuilder(
                     VALUE_PARAMETER_LIST -> firValueParameters += convertValueParameters(
                         it,
                         constructorSymbol,
-                        ValueParameterDeclaration.FUNCTION
+                        NodeTypeAnalyzer.ValueParameterDeclaration.FUNCTION
                     )
                     CONSTRUCTOR_DELEGATION_CALL -> delegatedConstructorNode = it
                     BLOCK -> block = it
@@ -1298,7 +1299,7 @@ class LightTreeRawFirDeclarationBuilder(
         }
     }
 
-    private fun ClassWrapper.obtainDispatchReceiverForConstructor(): ConeClassLikeType? =
+    private fun ClassWrapper<LighterASTNode>.obtainDispatchReceiverForConstructor(): ConeClassLikeType? =
         if (isInner()) dispatchReceiverForInnerClassConstructor() else null
 
     /**
@@ -1306,7 +1307,7 @@ class LightTreeRawFirDeclarationBuilder(
      */
     private fun convertConstructorDelegationCall(
         constructorDelegationCall: LighterASTNode,
-        classWrapper: ClassWrapper,
+        classWrapper: ClassWrapper<LighterASTNode>,
         isExpect: Boolean,
     ): FirDelegatedConstructorCall? {
         var thisKeywordPresent = false
@@ -1420,7 +1421,7 @@ class LightTreeRawFirDeclarationBuilder(
     /**
      * @see org.jetbrains.kotlin.parsing.KotlinParsing.parseProperty
      */
-    fun convertPropertyDeclaration(property: LighterASTNode, classWrapper: ClassWrapper? = null): FirProperty {
+    fun convertPropertyDeclaration(property: LighterASTNode, classWrapper: ClassWrapper<LighterASTNode>? = null): FirProperty {
         var modifiers: ModifierList<LighterASTNode>? = null
         var identifier: String? = null
         val firTypeParameters = mutableListOf<FirTypeParameter>()
@@ -1965,7 +1966,7 @@ class LightTreeRawFirDeclarationBuilder(
             when (it.tokenType) {
                 MODIFIER_LIST -> modifiers = convertModifierList(it)
                 VALUE_PARAMETER -> firValueParameter =
-                    convertValueParameter(it, functionSymbol, ValueParameterDeclaration.SETTER).firValueParameter
+                    convertValueParameter(it, functionSymbol, NodeTypeAnalyzer.ValueParameterDeclaration.SETTER).firValueParameter
             }
         }
 
@@ -2130,7 +2131,7 @@ class LightTreeRawFirDeclarationBuilder(
                         valueParameters += convertValueParameters(
                             list,
                             functionSymbol,
-                            if (isAnonymousFunction) ValueParameterDeclaration.LAMBDA else ValueParameterDeclaration.FUNCTION
+                            if (isAnonymousFunction) NodeTypeAnalyzer.ValueParameterDeclaration.LAMBDA else NodeTypeAnalyzer.ValueParameterDeclaration.FUNCTION
                         ).map { it.firValueParameter }
                     }
 
@@ -2746,7 +2747,7 @@ class LightTreeRawFirDeclarationBuilder(
     fun convertValueParameters(
         valueParameters: LighterASTNode,
         functionSymbol: FirFunctionSymbol<*>,
-        valueParameterDeclaration: ValueParameterDeclaration,
+        valueParameterDeclaration: NodeTypeAnalyzer.ValueParameterDeclaration,
         additionalAnnotations: List<FirAnnotation> = emptyList()
     ): List<ValueParameter> {
         return valueParameters.forEachChildrenReturnList { node, container ->
@@ -2767,7 +2768,7 @@ class LightTreeRawFirDeclarationBuilder(
     fun convertValueParameter(
         valueParameter: LighterASTNode,
         containingDeclarationSymbol: FirBasedSymbol<*>?,
-        valueParameterDeclaration: ValueParameterDeclaration,
+        valueParameterDeclaration: NodeTypeAnalyzer.ValueParameterDeclaration,
         additionalAnnotations: List<FirAnnotation> = emptyList()
     ): ValueParameter {
         var modifiers: ModifierList<LighterASTNode>? = null
@@ -2814,8 +2815,8 @@ class LightTreeRawFirDeclarationBuilder(
                     },
                 source = valueParameterSource,
                 moduleData = baseModuleData,
-                isFromPrimaryConstructor = valueParameterDeclaration == ValueParameterDeclaration.PRIMARY_CONSTRUCTOR,
-                isContextParameter = valueParameterDeclaration == ValueParameterDeclaration.CONTEXT_PARAMETER,
+                isFromPrimaryConstructor = valueParameterDeclaration == NodeTypeAnalyzer.ValueParameterDeclaration.PRIMARY_CONSTRUCTOR,
+                isContextParameter = valueParameterDeclaration == NodeTypeAnalyzer.ValueParameterDeclaration.CONTEXT_PARAMETER,
                 additionalAnnotations = additionalAnnotations,
                 name = name,
                 defaultValue = firExpression,
@@ -2855,7 +2856,7 @@ class LightTreeRawFirDeclarationBuilder(
                 convertValueParameter(
                     valueParameter = contextParameterElement,
                     containingDeclarationSymbol = containingDeclarationSymbol,
-                    valueParameterDeclaration = ValueParameterDeclaration.CONTEXT_PARAMETER
+                    valueParameterDeclaration = NodeTypeAnalyzer.ValueParameterDeclaration.CONTEXT_PARAMETER
                 ).firValueParameter
             }
 
@@ -2921,7 +2922,7 @@ class LightTreeRawFirDeclarationBuilder(
                 .filter { it.tokenType in SCRIPT_DECLARATION_TOKENS }
 
             val scriptDeclarationsIter = childNodes.listIterator()
-            withContainerScriptSymbol(symbol) {
+            context.withContainerScriptSymbol(symbol) {
                 val modifierLists = mutableListOf<LighterASTNode>()
                 while (scriptDeclarationsIter.hasNext()) {
                     val declarationSource = scriptDeclarationsIter.next()

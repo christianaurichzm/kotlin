@@ -6,12 +6,12 @@
 package org.jetbrains.kotlin.fir.lightTree.converter
 
 import org.jetbrains.kotlin.KtFakeSourceElementKind
-import org.jetbrains.kotlin.fir.builder.AbstractRawFirBuilder.ValueParameterDeclaration
-import org.jetbrains.kotlin.fir.declarations.FirNamedFunction
+import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget
+import org.jetbrains.kotlin.fir.analysis.NodeTypeAnalyzer
 import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.FirTypeAlias
-import org.jetbrains.kotlin.fir.declarations.FirValueParameter
+import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnostic
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
 import org.jetbrains.kotlin.fir.expressions.FirAnonymousObjectExpression
@@ -30,27 +30,32 @@ interface TreeDeclarationConverter<Node : Any> {
     fun convertObjectLiteral(node: Node): FirAnonymousObjectExpression
     fun convertDestructingDeclaration(node: Node): DestructuringDeclaration
     fun convertFunctionDeclaration(node: Node): FirStatement
-    fun convertPropertyDeclaration(node: Node, classWrapper: ClassWrapper? = null): FirProperty
+    fun convertPropertyDeclaration(node: Node, classWrapper: ClassWrapper<Node>? = null): FirProperty
     fun convertClass(node: Node): FirRegularClass
     fun convertTypeAlias(node: Node): FirTypeAlias
     fun convertBlock(node: Node?, convertOnlyFirstStatement: Boolean = false): FirBlock
-    fun convertBlockExpression(node: Node): FirBlock
-    fun convertAnnotationEntry(node: Node): FirAnnotation
+    fun convertBlockExpression(node: Node, convertOnlyFirstStatement: Boolean = false): FirBlock
     fun convertAnnotationTo(node: Node, list: MutableList<in FirAnnotationCall>)
     fun convertTypeArguments(typeArguments: Node, allowedUnderscoredTypeArgument: Boolean): List<FirTypeProjection>
     fun convertType(type: Node): FirTypeRef
 
+    fun convertAnnotationEntry(
+        node: Node,
+        defaultAnnotationUseSiteTarget: AnnotationUseSiteTarget? = null,
+        diagnostic: ConeDiagnostic? = null,
+    ): FirAnnotationCall
+
     fun convertValueParameters(
         valueParameters: Node,
         functionSymbol: FirFunctionSymbol<*>,
-        valueParameterDeclaration: ValueParameterDeclaration,
+        valueParameterDeclaration: NodeTypeAnalyzer.ValueParameterDeclaration,
         additionalAnnotations: List<FirAnnotation> = emptyList(),
     ): List<ValueParameter>
 
     fun convertValueParameter(
         valueParameter: Node,
         containingDeclarationSymbol: FirBasedSymbol<*>?,
-        valueParameterDeclaration: ValueParameterDeclaration,
+        valueParameterDeclaration: NodeTypeAnalyzer.ValueParameterDeclaration,
         additionalAnnotations: List<FirAnnotation> = emptyList()
     ): ValueParameter
 

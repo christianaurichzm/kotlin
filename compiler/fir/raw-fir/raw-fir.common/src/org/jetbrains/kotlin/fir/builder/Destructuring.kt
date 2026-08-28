@@ -45,7 +45,7 @@ interface DestructuringContext<T> {
 }
 
 context(c: DestructuringContext<T>)
-fun <T> AbstractRawFirBuilder<*>.addDestructuringVariables(
+fun <T> AbstractRawFirBuilder<*, *>.addDestructuringVariables(
     destination: MutableList<in FirVariable>,
     moduleData: FirModuleData,
     container: FirVariable,
@@ -78,7 +78,7 @@ enum class DestructuringKind {
 }
 
 context(c: DestructuringContext<T>)
-fun <T> AbstractRawFirBuilder<*>.buildDestructuringVariable(
+fun <T> AbstractRawFirBuilder<*, *>.buildDestructuringVariable(
     moduleData: FirModuleData,
     container: FirVariable,
     entry: T,
@@ -93,7 +93,7 @@ fun <T> AbstractRawFirBuilder<*>.buildDestructuringVariable(
             localEntries -> FirLocalPropertySymbol()
             else -> FirRegularPropertySymbol(callableIdForName(entry.name))
         }
-        withContainerSymbol(symbol, localEntries) {
+        context.withContainerSymbol(symbol, localEntries) {
             this.moduleData = moduleData
             origin = FirDeclarationOrigin.Source
             returnTypeRef = entry.returnTypeRef
