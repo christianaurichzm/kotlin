@@ -21,6 +21,7 @@ import org.jetbrains.kotlin.konan.test.blackbox.support.settings.*
 import org.jetbrains.kotlin.konan.test.blackbox.support.util.createTestProvider
 import org.jetbrains.kotlin.test.TestDataAssertions.assertEqualsToFile
 import org.jetbrains.kotlin.test.KtAssert.fail
+import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertFalse
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
 import org.junit.jupiter.api.Assumptions
 import org.junit.jupiter.api.Test
@@ -444,6 +445,167 @@ class FrameworkTest : AbstractNativeSimpleTest() {
     fun objCExportTestStatic() {
         objCExportTestImpl("Static", listOf("-Xbinary=objcExportSuspendFunctionLaunchThreadRestriction=main"),
                            listOf("-D", "DISALLOW_SUSPEND_ANY_THREAD"), true)
+    }
+
+    @Test
+    fun testObjCCacheCompilationAndFrameworkLink() {
+        Assumptions.assumeTrue(targets.testTarget.family.isAppleFamily)
+        val library = compileToLibrary(
+            testSuiteDir.resolve("objcexport/library"),
+            buildDir,
+            TestCompilerArgs("-Xshort-module-name=MyLibrary", "-module-name", "org.jetbrains.kotlin.native.test-library"),
+            emptyList(),
+        )
+        val cacheDir = buildDir.resolve("cache").apply { mkdirs() }
+        val frameworkName = "Kt"
+        val konanHome = testRunSettings.get<org.jetbrains.kotlin.konan.test.blackbox.support.settings.KotlinNativeHome>().dir
+        val distCacheDir = konanHome.resolve("klib/cache").listFiles { f -> f.name.startsWith(targets.testTarget.name) }?.firstOrNull { it.resolve("stdlib-cache").exists() }
+            ?: konanHome.resolve("klib/cache").listFiles { f -> f.name.startsWith(targets.testTarget.name) }?.firstOrNull { it.resolve("stdlib-per-file-cache").exists() }
+        val kotlinc = konanHome.resolve("bin").resolve("kotlinc-native")
+        val staticCacheArgs = buildList {
+            add("-produce")
+            add("static_cache")
+            add("-Xadd-cache=${library.klibFile.absolutePath}")
+            add("-Xcache-directory=${cacheDir.absolutePath}")
+            if (distCacheDir != null) {
+                add("-Xcache-directory=${distCacheDir.absolutePath}")
+            }
+            add("-target")
+            add(targets.testTarget.name)
+        }
+        org.jetbrains.kotlin.native.executors.runProcess(
+            kotlinc.absolutePath,
+            *staticCacheArgs.toTypedArray()
+        ) {
+            environment["JAVA_HOME"] = System.getProperty("java.home")
+        }
+
+        val cacheArgs = buildList {
+            add("-produce")
+            add("objc_cache")
+            add("-Xadd-cache=${library.klibFile.absolutePath}")
+            add("-module-name")
+            add(frameworkName)
+            add("-Xcache-directory=${cacheDir.absolutePath}")
+            if (distCacheDir != null) {
+                add("-Xcache-directory=${distCacheDir.absolutePath}")
+            }
+            add("-target")
+            add(targets.testTarget.name)
+        }
+        org.jetbrains.kotlin.native.executors.runProcess(
+            kotlinc.absolutePath,
+            *cacheArgs.toTypedArray()
+        ) {
+            environment["JAVA_HOME"] = System.getProperty("java.home")
+        }
+
+        val ktFiles = testSuiteDir.resolve("objcexport").listFiles { file: File -> file.name.endsWith(".kt") }!!.toList()
+        val testCase = generateObjCFrameworkTestCase(
+            TestKind.STANDALONE_NO_TR, extras, frameworkName,
+            ktFiles,
+            freeCompilerArgs = TestCompilerArgs(
+                listOf(
+                    "-opt-in=kotlinx.cinterop.ExperimentalForeignApi",
+                    "-Xbinary=bundleId=foo.bar",
+                    "-module-name", frameworkName,
+                    "-Xcache-directory=${cacheDir.absolutePath}",
+                    "-Xdisable-ir-checkers=IrVisibilityChecker",
+                )
+            ),
+            givenDependencies = setOf(TestModule.Given(library.klibFile)),
+            checks = TestRunChecks.Default(testRunSettings.get<Timeouts>().executionTimeout * 5),
+        )
+        testCompilationFactory.testCaseToObjCFrameworkCompilation(testCase, testRunSettings).result.assertSuccess()
+    }
+
+    @Test
+    fun testObjCCacheWithObjCExportEntryPoints() {
+        Assumptions.assumeTrue(targets.testTarget.family.isAppleFamily)
+        val library = compileToLibrary(
+            testSuiteDir.resolve("objcexport/library"),
+            buildDir,
+            TestCompilerArgs("-Xshort-module-name=MyLibrary", "-module-name", "org.jetbrains.kotlin.native.test-library"),
+            emptyList(),
+        )
+        val cacheDir = buildDir.resolve("cache_entry_points").apply { mkdirs() }
+        val frameworkName = "Kt"
+        val entryPointsFile = buildDir.resolve("entrypoints.txt").apply {
+            writeText(
+                """
+                callable library.A.data
+                callable library.A.<init>
+                """.trimIndent()
+            )
+        }
+        val konanHome = testRunSettings.get<org.jetbrains.kotlin.konan.test.blackbox.support.settings.KotlinNativeHome>().dir
+        val distCacheDir = konanHome.resolve("klib/cache").listFiles { f -> f.name.startsWith(targets.testTarget.name) }?.firstOrNull { it.resolve("stdlib-cache").exists() }
+            ?: konanHome.resolve("klib/cache").listFiles { f -> f.name.startsWith(targets.testTarget.name) }?.firstOrNull { it.resolve("stdlib-per-file-cache").exists() }
+        val kotlinc = konanHome.resolve("bin").resolve("kotlinc-native")
+        val staticCacheArgs = buildList {
+            add("-produce")
+            add("static_cache")
+            add("-Xadd-cache=${library.klibFile.absolutePath}")
+            add("-Xcache-directory=${cacheDir.absolutePath}")
+            if (distCacheDir != null) {
+                add("-Xcache-directory=${distCacheDir.absolutePath}")
+            }
+            add("-target")
+            add(targets.testTarget.name)
+        }
+        org.jetbrains.kotlin.native.executors.runProcess(
+            kotlinc.absolutePath,
+            *staticCacheArgs.toTypedArray()
+        ) {
+            environment["JAVA_HOME"] = System.getProperty("java.home")
+        }
+
+        val cacheArgs = buildList {
+            add("-produce")
+            add("objc_cache")
+            add("-Xadd-cache=${library.klibFile.absolutePath}")
+            add("-module-name")
+            add(frameworkName)
+            add("-Xcache-directory=${cacheDir.absolutePath}")
+            if (distCacheDir != null) {
+                add("-Xcache-directory=${distCacheDir.absolutePath}")
+            }
+            add("-Xbinary=objcExportEntryPointsPath=${entryPointsFile.absolutePath}")
+            add("-target")
+            add(targets.testTarget.name)
+        }
+        org.jetbrains.kotlin.native.executors.runProcess(
+            kotlinc.absolutePath,
+            *cacheArgs.toTypedArray()
+        ) {
+            environment["JAVA_HOME"] = System.getProperty("java.home")
+        }
+
+        val ktFiles = testSuiteDir.resolve("objcexport").listFiles { file: File -> file.name.endsWith(".kt") }!!.toList()
+        val testCase = generateObjCFrameworkTestCase(
+            TestKind.STANDALONE_NO_TR, extras, frameworkName,
+            ktFiles,
+            freeCompilerArgs = TestCompilerArgs(
+                listOf(
+                    "-opt-in=kotlinx.cinterop.ExperimentalForeignApi",
+                    "-Xbinary=bundleId=foo.bar",
+                    "-module-name", frameworkName,
+                    "-Xexport-library=${library.klibFile.absolutePath}",
+                    "-Xcache-directory=${cacheDir.absolutePath}",
+                    "-Xbinary=objcExportEntryPointsPath=${entryPointsFile.absolutePath}",
+                    "-Xdisable-ir-checkers=IrVisibilityChecker",
+                )
+            ),
+            givenDependencies = setOf(TestModule.Given(library.klibFile)),
+            checks = TestRunChecks.Default(testRunSettings.get<Timeouts>().executionTimeout * 5),
+        )
+        val success = testCompilationFactory.testCaseToObjCFrameworkCompilation(testCase, testRunSettings).result.assertSuccess()
+        val headerFile = success.resultingArtifact.frameworkDir.resolve("Headers/$frameworkName.h")
+        assertTrue(headerFile.exists()) { "Header file $headerFile does not exist" }
+        val headerContent = headerFile.readText()
+        assertTrue(headerContent.contains("initWithData:")) { "Expected initWithData: in header:\n$headerContent" }
+        assertTrue(headerContent.contains("@property (readonly) NSString *data")) { "Expected data property in header:\n$headerContent" }
+        assertFalse(headerContent.contains("readDataFromLibraryEnum")) { "Expected readDataFromLibraryEnum to be excluded from header:\n$headerContent" }
     }
 
     @Test
