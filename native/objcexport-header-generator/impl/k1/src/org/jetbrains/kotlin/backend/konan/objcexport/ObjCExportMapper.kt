@@ -39,6 +39,16 @@ class ObjCExportMapper(
     val hiddenTypes: Set<ClassId> get() = CustomTypeMappers.hiddenTypes
 
     private val methodBridgeCache = mutableMapOf<FunctionDescriptor, MethodBridge>()
+    internal val baseMethodsCache = mutableMapOf<FunctionDescriptor, List<FunctionDescriptor>>()
+    internal val basePropertiesCache = mutableMapOf<PropertyDescriptor, List<PropertyDescriptor>>()
+    internal val isBaseCache = mutableMapOf<CallableMemberDescriptor, Boolean>()
+    internal val classIfCategoryCache = mutableMapOf<CallableMemberDescriptor, ClassDescriptor?>()
+    internal val isTopLevelCache = mutableMapOf<CallableMemberDescriptor, Boolean>()
+    internal val isSpecialMappedCache = mutableMapOf<ClassDescriptor, Boolean>()
+    internal val canHaveCommonSubtypeCache = mutableMapOf<Triple<ClassDescriptor, ClassDescriptor, Boolean>, Boolean>()
+    internal val canBeInheritedBySameClassCache = mutableMapOf<Triple<CallableMemberDescriptor, CallableMemberDescriptor, Boolean>, Boolean>()
+    internal val canHaveSameSelectorCache = mutableMapOf<Triple<FunctionDescriptor, FunctionDescriptor, Boolean>, Boolean>()
+    internal val canHaveSameNameCache = mutableMapOf<Triple<PropertyDescriptor, PropertyDescriptor, Boolean>, Boolean>()
 
     fun bridgeMethod(descriptor: FunctionDescriptor): MethodBridge = if (local) {
         bridgeMethodImpl(descriptor)
@@ -47,6 +57,21 @@ class ObjCExportMapper(
             bridgeMethodImpl(descriptor)
         }
     }
+
+    fun getClassIfCategory(descriptor: CallableMemberDescriptor): ClassDescriptor? =
+        classIfCategoryCache.getOrPut(descriptor) {
+            org.jetbrains.kotlin.backend.konan.objcexport.getClassIfCategory(descriptor)
+        }
+
+    fun isTopLevel(descriptor: CallableMemberDescriptor): Boolean =
+        isTopLevelCache.getOrPut(descriptor) {
+            org.jetbrains.kotlin.backend.konan.objcexport.isTopLevel(descriptor)
+        }
+
+    fun isSpecialMapped(descriptor: ClassDescriptor): Boolean =
+        isSpecialMappedCache.getOrPut(descriptor) {
+            org.jetbrains.kotlin.backend.konan.objcexport.isSpecialMapped(descriptor)
+        }
 }
 
 internal fun isSpecialMapped(descriptor: ClassDescriptor): Boolean {
@@ -227,7 +252,9 @@ internal fun ObjCExportMapper.shouldBeVisible(descriptor: ClassDescriptor): Bool
         !descriptor.isHiddenFromObjC()
 
 private fun ObjCExportMapper.isBase(descriptor: CallableMemberDescriptor): Boolean =
-    descriptor.overriddenDescriptors.all { !shouldBeExposed(it) }
+    isBaseCache.getOrPut(descriptor) {
+        descriptor.overriddenDescriptors.all { !shouldBeExposed(it) }
+    }
 // e.g. it is not `override`, or overrides only unexposed methods.
 
 /**
@@ -252,12 +279,14 @@ fun ObjCExportMapper.isBaseMethod(descriptor: FunctionDescriptor) =
 
 @InternalKotlinNativeApi
 fun ObjCExportMapper.getBaseMethods(descriptor: FunctionDescriptor): List<FunctionDescriptor> =
-    if (isBaseMethod(descriptor)) {
-        listOf(descriptor)
-    } else {
-        descriptor.overriddenDescriptors.filter { shouldBeExposed(it) }
-            .flatMap { getBaseMethods(it.original) }
-            .distinct()
+    baseMethodsCache.getOrPut(descriptor) {
+        if (isBaseMethod(descriptor)) {
+            listOf(descriptor)
+        } else {
+            descriptor.overriddenDescriptors.filter { shouldBeExposed(it) }
+                .flatMap { getBaseMethods(it.original) }
+                .distinct()
+        }
     }
 
 @InternalKotlinNativeApi
@@ -266,12 +295,14 @@ fun ObjCExportMapper.isBaseProperty(descriptor: PropertyDescriptor) =
 
 @InternalKotlinNativeApi
 fun ObjCExportMapper.getBaseProperties(descriptor: PropertyDescriptor): List<PropertyDescriptor> =
-    if (isBaseProperty(descriptor)) {
-        listOf(descriptor)
-    } else {
-        descriptor.overriddenDescriptors
-            .flatMap { getBaseProperties(it.original) }
-            .distinct()
+    basePropertiesCache.getOrPut(descriptor) {
+        if (isBaseProperty(descriptor)) {
+            listOf(descriptor)
+        } else {
+            descriptor.overriddenDescriptors
+                .flatMap { getBaseProperties(it.original) }
+                .distinct()
+        }
     }
 
 @Suppress("NO_TAIL_CALLS_FOUND", "NON_TAIL_RECURSIVE_CALL") // Suppressed due to KT-73420

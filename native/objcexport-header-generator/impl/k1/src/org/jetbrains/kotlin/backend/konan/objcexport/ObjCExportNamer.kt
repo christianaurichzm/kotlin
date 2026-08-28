@@ -974,8 +974,16 @@ private fun ObjCExportMapper.canHaveCommonSubtype(
     first: ClassDescriptor,
     second: ClassDescriptor,
     ignoreInterfaceMethodCollisions: Boolean,
+): Boolean = canHaveCommonSubtypeCache.getOrPut(Triple(first, second, ignoreInterfaceMethodCollisions)) {
+    canHaveCommonSubtypeImpl(first, second, ignoreInterfaceMethodCollisions)
+}
+
+private fun ObjCExportMapper.canHaveCommonSubtypeImpl(
+    first: ClassDescriptor,
+    second: ClassDescriptor,
+    ignoreInterfaceMethodCollisions: Boolean,
 ): Boolean {
-    if (first.isSubclassOf(second) || second.isSubclassOf(first)) {
+    if (first == second || first.isSubclassOf(second) || second.isSubclassOf(first)) {
         return true
     }
 
@@ -990,7 +998,17 @@ private fun ObjCExportMapper.canBeInheritedBySameClass(
     first: CallableMemberDescriptor,
     second: CallableMemberDescriptor,
     ignoreInterfaceMethodCollisions: Boolean,
+): Boolean = canBeInheritedBySameClassCache.getOrPut(Triple(first, second, ignoreInterfaceMethodCollisions)) {
+    canBeInheritedBySameClassImpl(first, second, ignoreInterfaceMethodCollisions)
+}
+
+private fun ObjCExportMapper.canBeInheritedBySameClassImpl(
+    first: CallableMemberDescriptor,
+    second: CallableMemberDescriptor,
+    ignoreInterfaceMethodCollisions: Boolean,
 ): Boolean {
+    if (first == second) return true
+
     if (isTopLevel(first) || isTopLevel(second)) {
         return isTopLevel(first) && isTopLevel(second) &&
             first.propertyIfAccessor.findSourceFile() == second.propertyIfAccessor.findSourceFile()
@@ -999,18 +1017,30 @@ private fun ObjCExportMapper.canBeInheritedBySameClass(
     val firstClass = getClassIfCategory(first) ?: first.containingDeclaration as ClassDescriptor
     val secondClass = getClassIfCategory(second) ?: second.containingDeclaration as ClassDescriptor
 
+    if (firstClass == secondClass) {
+        return true
+    }
+
     if (first is ConstructorDescriptor) {
-        return firstClass == secondClass || second !is ConstructorDescriptor && firstClass.isSubclassOf(secondClass)
+        return second !is ConstructorDescriptor && firstClass.isSubclassOf(secondClass)
     }
 
     if (second is ConstructorDescriptor) {
-        return secondClass == firstClass || first !is ConstructorDescriptor && secondClass.isSubclassOf(firstClass)
+        return first !is ConstructorDescriptor && secondClass.isSubclassOf(firstClass)
     }
 
     return canHaveCommonSubtype(firstClass, secondClass, ignoreInterfaceMethodCollisions)
 }
 
-private fun ObjCExportMapper.canHaveSameSelector(
+internal fun ObjCExportMapper.canHaveSameSelector(
+    first: FunctionDescriptor,
+    second: FunctionDescriptor,
+    ignoreInterfaceMethodCollisions: Boolean,
+): Boolean = canHaveSameSelectorCache.getOrPut(Triple(first, second, ignoreInterfaceMethodCollisions)) {
+    canHaveSameSelectorImpl(first, second, ignoreInterfaceMethodCollisions)
+}
+
+private fun ObjCExportMapper.canHaveSameSelectorImpl(
     first: FunctionDescriptor,
     second: FunctionDescriptor,
     ignoreInterfaceMethodCollisions: Boolean,
@@ -1046,7 +1076,15 @@ private fun ObjCExportMapper.canHaveSameSelector(
     return bridgeMethod(first) == bridgeMethod(second)
 }
 
-private fun ObjCExportMapper.canHaveSameName(
+internal fun ObjCExportMapper.canHaveSameName(
+    first: PropertyDescriptor,
+    second: PropertyDescriptor,
+    ignoreInterfaceMethodCollisions: Boolean,
+): Boolean = canHaveSameNameCache.getOrPut(Triple(first, second, ignoreInterfaceMethodCollisions)) {
+    canHaveSameNameImpl(first, second, ignoreInterfaceMethodCollisions)
+}
+
+private fun ObjCExportMapper.canHaveSameNameImpl(
     first: PropertyDescriptor,
     second: PropertyDescriptor,
     ignoreInterfaceMethodCollisions: Boolean,
