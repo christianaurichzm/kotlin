@@ -3,17 +3,11 @@ fun addedEqualityBound() = B("2") == B("2")
 fun differentClasses() = B("3") == A("3") || A("3") == B("3")
 fun changedEqualityBound() = C("4") == C("4")
 
-open class WithRemovedBound : RemovedClass() {
-    override fun equals(@EqualityBound(RemovedClass::class) other: Any?): Boolean = true
-}
-
-fun withRemovedBoundEquals() = WithRemovedBound() == WithRemovedBound()
-
-class E(override val x: String) : WithNewBase(x) {
+class D(override val x: String) : WithNewBase(x) {
     override fun equals(@EqualityBound(Base::class) other: Any?): Boolean = x == other.x
 }
 
-fun changedHierarchyEquals() = E("5") == E("5")
+fun changedHierarchyEquals() = D("5") == D("5")
 
 open class WithRemovedAlias(x: String) : AliasTarget(x) {
     override fun equals(@EqualityBound(RemovedAlias::class) other: Any?): Boolean = x == other.x

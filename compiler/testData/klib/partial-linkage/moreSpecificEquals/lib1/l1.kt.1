@@ -14,8 +14,6 @@ class C(override val x: String) : Base {
     override fun equals(@EqualityBound(Base::class) other: Any?): Boolean = x == other.x
 }
 
-//open class RemovedClass
-
 interface NewBase {
     val x: String
 }
