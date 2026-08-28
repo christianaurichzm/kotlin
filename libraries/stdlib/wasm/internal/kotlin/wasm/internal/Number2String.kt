@@ -12,42 +12,11 @@ internal expect fun itoa64(inputValue: Long): String
 
 internal expect fun utoa64(inputValue: ULong): String
 
-private enum class CharCodes(val code: Int) {
-//  PERCENT(0x25),
-    PLUS(0x2B),
-    MINUS(0x2D),
-    DOT(0x2E),
-    _0(0x30),
-//  _1(0x31),
-//  _2(0x32),
-//  _3(0x33),
-//  _4(0x34),
-//  _5(0x35),
-//  _6(0x36),
-//  _7(0x37),
-//  _8(0x38),
-//  _9(0x39),
-//  A(0x41),
-//  B(0x42),
-//  E(0x45),
-//  I(0x49),
-//  N(0x4E),
-//  O(0x4F),
-//  X(0x58),
-//  Z(0x5A),
-//  a(0x61),
-//  b(0x62),
-    e(0x65),
-//  n(0x6E),
-//  o(0x6F),
-//  u(0x75),
-//  x(0x78),
-//  z(0x7A)
-}
+private const val ZeroCharCode = 0x30
 
 internal fun digitToChar(input: Int): Char {
     assert(input in 0..9)
-    return (CharCodes._0.code + input).toChar()
+    return (ZeroCharCode + input).toChar()
 }
 
 internal fun decimalCount32(value: UInt): Int {
