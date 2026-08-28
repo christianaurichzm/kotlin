@@ -34,10 +34,12 @@ fun File.readObjCEntryPoints(): ObjCEntryPoints =
         .toSet()
         .let { entryPointSet ->
             object : ObjCEntryPoints {
-                override fun shouldBeExposed(descriptor: CallableMemberDescriptor): Boolean =
-                    descriptor.objCEntryPointKindOrNull
-                        ?.let { objcEntryPointKind -> shouldBeExposed(objcEntryPointKind, descriptor.fqNameSafe) }
+                override fun shouldBeExposed(descriptor: CallableMemberDescriptor): Boolean {
+                    val target = (descriptor as? PropertyAccessorDescriptor)?.correspondingProperty ?: descriptor
+                    return target.objCEntryPointKindOrNull
+                        ?.let { objcEntryPointKind -> shouldBeExposed(objcEntryPointKind, target.fqNameSafe) }
                         ?: false
+                }
 
                 private fun shouldBeExposed(kind: ObjCEntryPoint.Kind, fqName: FqName): Boolean =
                     entryPointSet.contains(ObjCEntryPoint(kind, fqName.toObjCExplicitPattern())) ||
