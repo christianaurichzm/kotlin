@@ -1033,7 +1033,7 @@ class LightTreeRawFirDeclarationBuilder(
         containingClassIsExpectClass: Boolean,
         isImplicitlyActual: Boolean = false,
         isKotlinAny: Boolean = false,
-    ): PrimaryConstructor? {
+    ): PrimaryConstructor<LighterASTNode>? {
         val shouldGenerateImplicitConstructor =
             (classWrapper.isEnumEntry() || !classWrapper.hasSecondaryConstructor) &&
                     !classWrapper.isInterface() &&
@@ -1046,7 +1046,7 @@ class LightTreeRawFirDeclarationBuilder(
         val constructorSymbol = FirConstructorSymbol(callableIdForClassConstructor())
         context.withContainerSymbol(constructorSymbol) {
             var modifiersIfPresent: ModifierList<LighterASTNode>? = null
-            val valueParameters = mutableListOf<ValueParameter>()
+            val valueParameters = mutableListOf<ValueParameter<LighterASTNode>>()
             primaryConstructor?.forEachChildren {
                 when (it.tokenType) {
                     MODIFIER_LIST -> {
@@ -1226,7 +1226,7 @@ class LightTreeRawFirDeclarationBuilder(
      */
     private fun convertSecondaryConstructor(secondaryConstructor: LighterASTNode, classWrapper: ClassWrapper<LighterASTNode>): FirConstructor {
         var modifiers: ModifierList<LighterASTNode>? = null
-        val firValueParameters = mutableListOf<ValueParameter>()
+        val firValueParameters = mutableListOf<ValueParameter<LighterASTNode>>()
         var constructorDelegationCall: FirDelegatedConstructorCall? = null
         var block: LighterASTNode? = null
 
@@ -2749,7 +2749,7 @@ class LightTreeRawFirDeclarationBuilder(
         functionSymbol: FirFunctionSymbol<*>,
         valueParameterDeclaration: NodeTypeAnalyzer.ValueParameterDeclaration,
         additionalAnnotations: List<FirAnnotation> = emptyList()
-    ): List<ValueParameter> {
+    ): List<ValueParameter<LighterASTNode>> {
         return valueParameters.forEachChildrenReturnList { node, container ->
             when (node.tokenType) {
                 VALUE_PARAMETER -> container += convertValueParameter(
@@ -2770,7 +2770,7 @@ class LightTreeRawFirDeclarationBuilder(
         containingDeclarationSymbol: FirBasedSymbol<*>?,
         valueParameterDeclaration: NodeTypeAnalyzer.ValueParameterDeclaration,
         additionalAnnotations: List<FirAnnotation> = emptyList()
-    ): ValueParameter {
+    ): ValueParameter<LighterASTNode> {
         var modifiers: ModifierList<LighterASTNode>? = null
         var isVal = false
         var isVar = false

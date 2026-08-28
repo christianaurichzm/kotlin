@@ -17,7 +17,6 @@ import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.analysis.NodeTypeAnalyzer
 import org.jetbrains.kotlin.fir.builder.*
 import org.jetbrains.kotlin.fir.builder.AbstractRawFirBuilder.ForbiddenLabelKind
-import org.jetbrains.kotlin.fir.builder.AbstractRawFirBuilder.ValueParameterDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.declarations.FirVariable
 import org.jetbrains.kotlin.fir.declarations.builder.buildAnonymousFunction
@@ -179,7 +178,7 @@ class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
      * @see org.jetbrains.kotlin.fir.builder.PsiRawFirBuilder.Visitor.visitLambdaExpression
      */
     private fun convertLambdaExpression(lambdaExpression: Node): FirAnonymousFunctionExpression {
-        val valueParameterList = mutableListOf<ValueParameter>()
+        val valueParameterList = mutableListOf<ValueParameter<Node>>()
         var block: Node? = null
         var hasArrow = false
 
@@ -189,7 +188,7 @@ class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
                 KtNodeTypes.VALUE_PARAMETER_LIST_ID -> valueParameterList += declarationBuilder.convertValueParameters(
                     valueParameters = it,
                     functionSymbol,
-                    ValueParameterDeclaration.LAMBDA
+                    NodeTypeAnalyzer.ValueParameterDeclaration.LAMBDA
                 )
                 KtNodeTypes.BLOCK_ID -> block = it
                 KtTokens.ARROW_ID -> hasArrow = true
@@ -966,7 +965,7 @@ class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
         var subjectExpression: FirExpression? = null
         var subjectVariable: FirVariable? = null
         val whenEntryNodes = mutableListOf<Node>()
-        val whenEntries = mutableListOf<WhenEntry>()
+        val whenEntries = mutableListOf<WhenEntry<Node>>()
         whenExpression.forEachChildren {
             when (it.elementType.toTokenId()) {
                 KtNodeTypes.PROPERTY_ID -> {
@@ -1070,7 +1069,7 @@ class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
     private fun convertWhenEntry(
         whenEntry: Node,
         subjectVariable: FirVariable?,
-    ): WhenEntry {
+    ): WhenEntry<Node> {
         var isElse = false
         var firBlock: FirBlock = buildEmptyExpressionBlock()
         val conditions = mutableListOf<FirExpression>()
@@ -1100,7 +1099,7 @@ class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
             }
         }
 
-        return WhenEntry(conditions, guard, firBlock, whenEntry, isElse, shouldBindSubject, tree)
+        return WhenEntry(conditions, guard, firBlock, whenEntry, isElse, shouldBindSubject, whenEntry.toFirSourceElement())
     }
 
     private fun convertWhenConditionExpression(
@@ -1147,11 +1146,11 @@ class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
         whenCondition.forEachChildren {
             when (it.elementType.toTokenId()) {
                 KtNodeTypes.OPERATION_REFERENCE_ID if it.getOperationTokenId() == KtTokens.NOT_IN_ID -> {
-                    conditionSource = it.toFirSourceElement()
+                    conditionSource = it.toFirSourceElement() as KtLightSourceElement
                     isNegate = true
                 }
                 KtNodeTypes.OPERATION_REFERENCE_ID -> {
-                    conditionSource = it.toFirSourceElement()
+                    conditionSource = it.toFirSourceElement() as KtLightSourceElement
                 }
                 else -> if (it.isExpression()) firExpression = getAsFirExpression(it, "No range in condition with range")
             }
@@ -1368,12 +1367,12 @@ class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
      * @see org.jetbrains.kotlin.fir.builder.PsiRawFirBuilder.Visitor.visitForExpression
      */
     private fun convertFor(forLoop: Node): FirBlock {
-        var parameter: ValueParameter? = null
+        var parameter: ValueParameter<Node>? = null
         var rangeExpression: FirExpression? = null
         var blockNode: Node? = null
         forLoop.forEachChildren {
             when (it.elementType.toTokenId()) {
-                KtNodeTypes.VALUE_PARAMETER_ID -> parameter = declarationBuilder.convertValueParameter(it, null, ValueParameterDeclaration.FOR_LOOP)
+                KtNodeTypes.VALUE_PARAMETER_ID -> parameter = declarationBuilder.convertValueParameter(it, null, NodeTypeAnalyzer.ValueParameterDeclaration.FOR_LOOP)
                 KtNodeTypes.LOOP_RANGE_ID -> rangeExpression = getAsFirExpression(it, "No range in for loop")
                 KtNodeTypes.BODY_ID -> blockNode = it
             }
@@ -1421,7 +1420,7 @@ class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
                     source = blockNode?.toFirSourceElement()
                     val valueParameter = parameter ?: return@block
                     val multiDeclaration = valueParameter.destructuringDeclaration
-                    val quotedName = valueParameter.source.lighterASTNode.getChildNodeByTokenId(KtTokens.IDENTIFIER_ID)?.asText
+                    val quotedName = valueParameter.source.toNode().getChildNodeByTokenId(KtTokens.IDENTIFIER_ID)?.asText
                     val firLoopParameter = generateTemporaryVariable(
                         baseModuleData,
                         valueParameter.source,
@@ -1496,7 +1495,7 @@ class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
      */
     private fun convertTryExpression(tryExpression: Node): FirTryExpression {
         lateinit var tryBlock: FirBlock
-        val catchClauses = mutableListOf<Triple<ValueParameter?, FirBlock, KtLightSourceElement>>()
+        val catchClauses = mutableListOf<Triple<ValueParameter<Node>?, FirBlock, KtLightSourceElement>>()
         var finallyBlock: FirBlock? = null
         tryExpression.forEachChildren {
             when (it.elementType.toTokenId()) {
@@ -1536,8 +1535,8 @@ class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
     /**
      * @see org.jetbrains.kotlin.parsing.KotlinExpressionParsing.parseTry
      */
-    private fun convertCatchClause(catchClause: Node): Triple<ValueParameter?, FirBlock, KtLightSourceElement>? {
-        var valueParameter: ValueParameter? = null
+    private fun convertCatchClause(catchClause: Node): Triple<ValueParameter<Node>?, FirBlock, KtLightSourceElement>? {
+        var valueParameter: ValueParameter<Node>? = null
         var blockNode: Node? = null
         var emptyValueParameterList = false
         catchClause.forEachChildren {
@@ -1545,7 +1544,7 @@ class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
                 KtNodeTypes.VALUE_PARAMETER_LIST_ID -> valueParameter = declarationBuilder.convertValueParameters(
                     valueParameters = it,
                     FirAnonymousFunctionSymbol(),
-                    ValueParameterDeclaration.CATCH
+                    NodeTypeAnalyzer.ValueParameterDeclaration.CATCH
                 ).firstOrNull() ?: run { emptyValueParameterList = true; null }
 
                 KtNodeTypes.BLOCK_ID -> blockNode = it
@@ -1553,7 +1552,7 @@ class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
         }
 
         if (emptyValueParameterList) return null
-        return Triple(valueParameter, declarationBuilder.convertBlock(blockNode), catchClause.toFirSourceElement())
+        return Triple(valueParameter, declarationBuilder.convertBlock(blockNode), catchClause.toFirSourceElement() as KtLightSourceElement)
     }
 
     /**

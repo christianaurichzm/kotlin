@@ -21,6 +21,7 @@ import org.jetbrains.kotlin.kmp.parser.KotlinParser
 import org.jetbrains.kotlin.kmp.tree.MultiplatformBasedLightTree
 import org.jetbrains.kotlin.kmp.tree.buildLanguageSpecificLightTree
 
+@Suppress("UnstableApiUsage")
 class MultiplatformParsing2Fir(
     override val session: FirSession,
     private val scopeProvider: FirScopeProvider,

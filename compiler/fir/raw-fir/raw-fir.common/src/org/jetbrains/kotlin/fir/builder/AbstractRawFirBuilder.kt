@@ -994,32 +994,6 @@ abstract class AbstractRawFirBuilder<Node : Any, Type : Any>(
         UNDERSCORE_IS_RESERVED, MULTIPLE_LABEL
     }
 
-    protected fun convertFirSelector(
-        firSelector: FirQualifiedAccessExpression,
-        source: KtSourceElement?,
-        receiver: FirExpression,
-    ): FirQualifiedAccessExpression {
-        return if (firSelector is FirImplicitInvokeCall) {
-            buildImplicitInvokeCall {
-                this.source = source
-                annotations.addAll(firSelector.annotations)
-                typeArguments.addAll(firSelector.typeArguments)
-                explicitReceiver = firSelector.explicitReceiver
-                argumentList = buildArgumentList {
-                    arguments.add(receiver)
-                    arguments.addAll(firSelector.arguments)
-                }
-                isCallWithExplicitReceiver = true
-                calleeReference = firSelector.calleeReference
-            }
-        } else {
-            firSelector.replaceExplicitReceiver(receiver)
-            @OptIn(FirImplementationDetail::class)
-            firSelector.replaceSource(source)
-            firSelector
-        }
-    }
-
     protected open fun isReplSnippet(script: Node, sourceFile: KtSourceFile): Boolean {
         val scriptSource = script.toFirSourceElement()
         return baseSession.extensionService.replSnippetConfigurators.any {

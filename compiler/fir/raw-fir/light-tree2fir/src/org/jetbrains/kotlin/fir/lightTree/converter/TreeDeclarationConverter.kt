@@ -50,14 +50,14 @@ interface TreeDeclarationConverter<Node : Any> {
         functionSymbol: FirFunctionSymbol<*>,
         valueParameterDeclaration: NodeTypeAnalyzer.ValueParameterDeclaration,
         additionalAnnotations: List<FirAnnotation> = emptyList(),
-    ): List<ValueParameter>
+    ): List<ValueParameter<Node>>
 
     fun convertValueParameter(
         valueParameter: Node,
         containingDeclarationSymbol: FirBasedSymbol<*>?,
         valueParameterDeclaration: NodeTypeAnalyzer.ValueParameterDeclaration,
         additionalAnnotations: List<FirAnnotation> = emptyList()
-    ): ValueParameter
+    ): ValueParameter<Node>
 
     fun convertBlockExpressionWithoutBuilding(
         block: Node,

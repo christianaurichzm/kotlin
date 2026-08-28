@@ -18,6 +18,7 @@ import org.jetbrains.kotlin.descriptors.EffectiveVisibility
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.fir.*
+import org.jetbrains.kotlin.fir.analysis.NodeTypeAnalyzer
 import org.jetbrains.kotlin.fir.builder.*
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.declarations.FirReplSnippet
@@ -176,7 +177,7 @@ class LightTreeRawFirExpressionBuilder(
      * @see org.jetbrains.kotlin.fir.builder.PsiRawFirBuilder.Visitor.visitLambdaExpression
      */
     private fun convertLambdaExpression(lambdaExpression: LighterASTNode): FirAnonymousFunctionExpression {
-        val valueParameterList = mutableListOf<ValueParameter>()
+        val valueParameterList = mutableListOf<ValueParameter<LighterASTNode>>()
         var block: LighterASTNode? = null
         var hasArrow = false
 
@@ -186,7 +187,7 @@ class LightTreeRawFirExpressionBuilder(
                 VALUE_PARAMETER_LIST -> valueParameterList += declarationBuilder.convertValueParameters(
                     valueParameters = it,
                     functionSymbol,
-                    ValueParameterDeclaration.LAMBDA
+                    NodeTypeAnalyzer.ValueParameterDeclaration.LAMBDA
                 )
                 BLOCK -> block = it
                 ARROW -> hasArrow = true
@@ -890,7 +891,7 @@ class LightTreeRawFirExpressionBuilder(
         var subjectExpression: FirExpression? = null
         var subjectVariable: FirVariable? = null
         val whenEntryNodes = mutableListOf<LighterASTNode>()
-        val whenEntries = mutableListOf<WhenEntry>()
+        val whenEntries = mutableListOf<WhenEntry<LighterASTNode>>()
         whenExpression.forEachChildren {
             when (it.tokenType) {
                 PROPERTY -> subjectVariable = (declarationBuilder.convertPropertyDeclaration(it) as FirVariable).let { variable ->
@@ -992,7 +993,7 @@ class LightTreeRawFirExpressionBuilder(
     private fun convertWhenEntry(
         whenEntry: LighterASTNode,
         subjectVariable: FirVariable?,
-    ): WhenEntry {
+    ): WhenEntry<LighterASTNode> {
         var isElse = false
         var firBlock: FirBlock = buildEmptyExpressionBlock()
         val conditions = mutableListOf<FirExpression>()
@@ -1022,7 +1023,7 @@ class LightTreeRawFirExpressionBuilder(
             }
         }
 
-        return WhenEntry(conditions, guard, firBlock, whenEntry, isElse, shouldBindSubject, tree)
+        return WhenEntry(conditions, guard, firBlock, whenEntry, isElse, shouldBindSubject, whenEntry.toKtLightSourceElement(tree))
     }
 
     private fun convertWhenConditionExpression(
@@ -1290,12 +1291,12 @@ class LightTreeRawFirExpressionBuilder(
      * @see org.jetbrains.kotlin.fir.builder.PsiRawFirBuilder.Visitor.visitForExpression
      */
     private fun convertFor(forLoop: LighterASTNode): FirBlock {
-        var parameter: ValueParameter? = null
+        var parameter: ValueParameter<LighterASTNode>? = null
         var rangeExpression: FirExpression? = null
         var blockNode: LighterASTNode? = null
         forLoop.forEachChildren {
             when (it.tokenType) {
-                VALUE_PARAMETER -> parameter = declarationBuilder.convertValueParameter(it, null, ValueParameterDeclaration.FOR_LOOP)
+                VALUE_PARAMETER -> parameter = declarationBuilder.convertValueParameter(it, null, NodeTypeAnalyzer.ValueParameterDeclaration.FOR_LOOP)
                 LOOP_RANGE -> rangeExpression = getAsFirExpression(it, "No range in for loop")
                 BODY -> blockNode = it
             }
@@ -1418,7 +1419,7 @@ class LightTreeRawFirExpressionBuilder(
      */
     private fun convertTryExpression(tryExpression: LighterASTNode): FirTryExpression {
         lateinit var tryBlock: FirBlock
-        val catchClauses = mutableListOf<Triple<ValueParameter?, FirBlock, KtLightSourceElement>>()
+        val catchClauses = mutableListOf<Triple<ValueParameter<LighterASTNode>?, FirBlock, KtLightSourceElement>>()
         var finallyBlock: FirBlock? = null
         tryExpression.forEachChildren {
             when (it.tokenType) {
@@ -1458,8 +1459,8 @@ class LightTreeRawFirExpressionBuilder(
     /**
      * @see org.jetbrains.kotlin.parsing.KotlinExpressionParsing.parseTry
      */
-    private fun convertCatchClause(catchClause: LighterASTNode): Triple<ValueParameter?, FirBlock, KtLightSourceElement>? {
-        var valueParameter: ValueParameter? = null
+    private fun convertCatchClause(catchClause: LighterASTNode): Triple<ValueParameter<LighterASTNode>?, FirBlock, KtLightSourceElement>? {
+        var valueParameter: ValueParameter<LighterASTNode>? = null
         var blockNode: LighterASTNode? = null
         var emptyValueParameterList = false
         catchClause.forEachChildren {
@@ -1467,7 +1468,7 @@ class LightTreeRawFirExpressionBuilder(
                 VALUE_PARAMETER_LIST -> valueParameter = declarationBuilder.convertValueParameters(
                     valueParameters = it,
                     FirAnonymousFunctionSymbol(),
-                    ValueParameterDeclaration.CATCH
+                    NodeTypeAnalyzer.ValueParameterDeclaration.CATCH
                 ).firstOrNull() ?: run { emptyValueParameterList = true; null }
 
                 BLOCK -> blockNode = it

@@ -10,6 +10,10 @@ import com.intellij.platform.syntax.SyntaxElementTypeSet
 import com.intellij.platform.syntax.element.SyntaxTokenTypes.BAD_CHARACTER
 import com.intellij.platform.syntax.element.SyntaxTokenTypes.ERROR_ELEMENT
 import com.intellij.platform.syntax.syntaxElementTypeSetOf
+import org.jetbrains.kotlin.KtFakeSourceElementKind
+import org.jetbrains.kotlin.KtLightSourceElement
+import org.jetbrains.kotlin.KtRealSourceElementKind
+import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.lightTree.converter.AbstractTreeRawFirBuilder
 import org.jetbrains.kotlin.kmp.lexer.KtTokens
@@ -21,7 +25,9 @@ import org.jetbrains.kotlin.kmp.lexer.KtTokens.WHITE_SPACE
 import org.jetbrains.kotlin.kmp.parser.KtNodeTypes
 import org.jetbrains.kotlin.kmp.tree.LightNode
 import org.jetbrains.kotlin.kmp.tree.MultiplatformBasedLightTree
+import org.jetbrains.kotlin.toKtLightSourceElement
 
+@Suppress("UnstableApiUsage")
 abstract class AbstractMultiplatformParsingRawFirBuilder(
     baseSession: FirSession,
     val treeStructure: KotlinLightTreeStructure,
@@ -64,6 +70,17 @@ abstract class AbstractMultiplatformParsingRawFirBuilder(
     override fun SyntaxElementType.isLabeledExpression(): Boolean = this == KtNodeTypes.LABELED_EXPRESSION
     override fun SyntaxElementType.isAnnotatedExpression(): Boolean = this == KtNodeTypes.ANNOTATED_EXPRESSION
 
+    override fun LightNode.toFirSourceElement(kind: KtFakeSourceElementKind?): KtSourceElement {
+        val startOffset = tree.getStartOffset(this)
+        val endOffset = tree.getEndOffset(this)
+        val lighterNode = KotlinLightAstNode(tree, this)
+        return KtLightSourceElement(lighterNode, startOffset, endOffset, treeStructure, kind ?: KtRealSourceElementKind)
+    }
+
+    override fun KtSourceElement.toNode(): LightNode {
+        return ((this as KtLightSourceElement).lighterASTNode as KotlinLightAstNode).node
+    }
+
     val LightNode.tokenType: SyntaxElementType
         get() = tree.getType(this)
 
@@ -74,13 +91,15 @@ abstract class AbstractMultiplatformParsingRawFirBuilder(
         if (tokenType == KtNodeTypes.FUN) {
             return getParent()?.getLabelName()
         }
+        var result: String? = null
         this.forEachChildren {
+            if (result != null) return@forEachChildren
             when (it.tokenType) {
-                KtNodeTypes.LABEL_QUALIFIER -> return it.asText.replaceFirst("@", "").let(::unquoteIdentifier)
+                KtNodeTypes.LABEL_QUALIFIER -> result = it.asText.replaceFirst("@", "").let(::unquoteIdentifier)
             }
         }
 
-        return null
+        return result
     }
 
     override fun LightNode.getChildNodeByType(type: SyntaxElementType): LightNode? {
@@ -94,25 +113,31 @@ abstract class AbstractMultiplatformParsingRawFirBuilder(
     override val LightNode?.receiverExpression: LightNode?
         get() {
             var candidate: LightNode? = null
+            var result: LightNode? = null
             this?.forEachChildren {
+                if (result != null) return@forEachChildren
                 when (it.tokenType) {
-                    DOT, SAFE_ACCESS -> return if (candidate?.tokenType != ERROR_ELEMENT) candidate else null
+                    DOT, SAFE_ACCESS -> result = if (candidate?.tokenType != ERROR_ELEMENT) candidate else null
                     else -> candidate = it
                 }
             }
-            return null
+            return result
         }
 
     override val LightNode?.selectorExpression: LightNode?
         get() {
             var isSelector = false
+            var result: LightNode? = null
             this?.forEachChildren {
+                if (result != null) return@forEachChildren
                 when (it.tokenType) {
                     DOT, SAFE_ACCESS -> isSelector = true
-                    else -> if (isSelector) return if (it.tokenType != ERROR_ELEMENT) it else null
+                    else -> if (isSelector) {
+                        result = if (it.tokenType != ERROR_ELEMENT) it else null
+                    }
                 }
             }
-            return null
+            return result
         }
 
     override val LightNode?.indexExpressions: List<LightNode>?

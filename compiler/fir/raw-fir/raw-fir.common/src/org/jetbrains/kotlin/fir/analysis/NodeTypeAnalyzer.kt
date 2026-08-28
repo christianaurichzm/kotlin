@@ -10,6 +10,7 @@ import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.KtSourceFile
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.fir.FirElement
+import org.jetbrains.kotlin.fir.FirImplementationDetail
 import org.jetbrains.kotlin.fir.FirLabel
 import org.jetbrains.kotlin.fir.FirLoopTarget
 import org.jetbrains.kotlin.fir.FirModuleData
@@ -48,16 +49,20 @@ import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.FirBlock
 import org.jetbrains.kotlin.fir.expressions.FirErrorExpression
 import org.jetbrains.kotlin.fir.expressions.FirExpression
+import org.jetbrains.kotlin.fir.expressions.FirImplicitInvokeCall
 import org.jetbrains.kotlin.fir.expressions.FirLiteralExpression
 import org.jetbrains.kotlin.fir.expressions.FirLoop
 import org.jetbrains.kotlin.fir.expressions.FirOperation
+import org.jetbrains.kotlin.fir.expressions.FirQualifiedAccessExpression
 import org.jetbrains.kotlin.fir.expressions.FirReturnExpression
 import org.jetbrains.kotlin.fir.expressions.FirStatement
+import org.jetbrains.kotlin.fir.expressions.arguments
 import org.jetbrains.kotlin.fir.expressions.buildConstOrErrorExpression
 import org.jetbrains.kotlin.fir.expressions.builder.FirLoopBuilder
 import org.jetbrains.kotlin.fir.expressions.builder.FirLoopJumpBuilder
 import org.jetbrains.kotlin.fir.expressions.builder.buildArgumentList
 import org.jetbrains.kotlin.fir.expressions.builder.buildErrorExpression
+import org.jetbrains.kotlin.fir.expressions.builder.buildImplicitInvokeCall
 import org.jetbrains.kotlin.fir.expressions.builder.buildLiteralExpression
 import org.jetbrains.kotlin.fir.expressions.builder.buildStringConcatenationCall
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
@@ -89,6 +94,7 @@ interface NodeTypeAnalyzer<Node : Any, Type : Any> {
     val implicitAnnotationType: FirImplicitBuiltinTypeRef
 
     fun Node.toFirSourceElement(kind: KtFakeSourceElementKind? = null): KtSourceElement
+    fun KtSourceElement.toNode(): Node
     val Node.elementType: Type
     val Node.asText: String
     fun Node.getAsStringWithoutBacktick(): String {
@@ -300,6 +306,32 @@ interface NodeTypeAnalyzer<Node : Any, Type : Any> {
             convertedValue,
             setType = false
         )
+    }
+
+    fun convertFirSelector(
+        firSelector: FirQualifiedAccessExpression,
+        source: KtSourceElement?,
+        receiver: FirExpression,
+    ): FirQualifiedAccessExpression {
+        return if (firSelector is FirImplicitInvokeCall) {
+            buildImplicitInvokeCall {
+                this.source = source
+                annotations.addAll(firSelector.annotations)
+                typeArguments.addAll(firSelector.typeArguments)
+                explicitReceiver = firSelector.explicitReceiver
+                argumentList = buildArgumentList {
+                    arguments.add(receiver)
+                    arguments.addAll(firSelector.arguments)
+                }
+                isCallWithExplicitReceiver = true
+                calleeReference = firSelector.calleeReference
+            }
+        } else {
+            firSelector.replaceExplicitReceiver(receiver)
+            @OptIn(FirImplementationDetail::class)
+            firSelector.replaceSource(source)
+            firSelector
+        }
     }
 
     fun List<Node?>.toInterpolatingCall(

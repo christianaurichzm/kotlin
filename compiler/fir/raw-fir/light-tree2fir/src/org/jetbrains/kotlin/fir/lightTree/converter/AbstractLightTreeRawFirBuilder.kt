@@ -39,6 +39,10 @@ abstract class AbstractLightTreeRawFirBuilder(
         return toKtLightSourceElement(tree, kind ?: KtRealSourceElementKind, startOffset, endOffset)
     }
 
+    override fun KtSourceElement.toNode(): LighterASTNode {
+        return (this as KtLightSourceElement).lighterASTNode
+    }
+
     override val LighterASTNode.elementType: IElementType
         get() = this.tokenType
 

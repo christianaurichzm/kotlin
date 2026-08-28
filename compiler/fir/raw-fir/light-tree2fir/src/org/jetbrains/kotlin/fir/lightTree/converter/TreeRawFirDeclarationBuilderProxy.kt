@@ -147,7 +147,6 @@ import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.NameUtils
 import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.name.StandardClassIds
-import org.jetbrains.kotlin.util.getChildren
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import org.jetbrains.kotlin.utils.addToStdlib.runUnless
 import org.jetbrains.kotlin.utils.addToStdlib.shouldNotBeCalled
@@ -745,7 +744,7 @@ class TreeRawFirDeclarationBuilderProxy<Node : Any, Type : Any>(
 
                         //parse data class
                         if (calculatedModifiers.isDataClass() && firPrimaryConstructor != null) {
-                            val zippedParameters = properties.map { it.source!!.lighterASTNode to it }
+                            val zippedParameters = properties.map { it.source!!.toNode() to it }
                             generateDataClassMembers(
                                 primaryConstructor ?: node,
                                 this,
@@ -985,7 +984,7 @@ class TreeRawFirDeclarationBuilderProxy<Node : Any, Type : Any>(
                                     DelegatedConstructorWrapper(
                                         classWrapper.delegatedSelfTypeRef,
                                         enumSuperTypeCallEntry,
-                                        superTypeCallEntry?.toFirSourceElement(),
+                                        superTypeCallEntry?.toFirSourceElement() as KtLightSourceElement?,
                                     )
                                 ),
                                 companionBlockCollector,
@@ -995,7 +994,7 @@ class TreeRawFirDeclarationBuilderProxy<Node : Any, Type : Any>(
                                 null,
                                 enumEntry.toFirSourceElement(),
                                 enumClassWrapper,
-                                superTypeCallEntry?.toFirSourceElement(),
+                                superTypeCallEntry?.toFirSourceElement() as KtLightSourceElement?,
                                 isEnumEntry = true,
                                 containingClassIsExpectClass = containingClassIsExpectClass
                             )?.let { declarations += it.firConstructor }
@@ -1125,7 +1124,7 @@ class TreeRawFirDeclarationBuilderProxy<Node : Any, Type : Any>(
         containingClassIsExpectClass: Boolean,
         isImplicitlyActual: Boolean = false,
         isKotlinAny: Boolean = false,
-    ): PrimaryConstructor? {
+    ): PrimaryConstructor<Node>? {
         val shouldGenerateImplicitConstructor =
             (classWrapper.isEnumEntry() || !classWrapper.hasSecondaryConstructor) &&
                     !classWrapper.isInterface() &&
@@ -1138,7 +1137,7 @@ class TreeRawFirDeclarationBuilderProxy<Node : Any, Type : Any>(
         val constructorSymbol = FirConstructorSymbol(callableIdForClassConstructor())
         context.withContainerSymbol(constructorSymbol) {
             var modifiersIfPresent: ModifierList<Node>? = null
-            val valueParameters = mutableListOf<ValueParameter>()
+            val valueParameters = mutableListOf<ValueParameter<Node>>()
             primaryConstructor?.forEachChildren {
                 when (it.elementType.toTokenId()) {
                     KtNodeTypes.MODIFIER_LIST_ID -> {
@@ -1181,7 +1180,7 @@ class TreeRawFirDeclarationBuilderProxy<Node : Any, Type : Any>(
                                     ?: this@buildDelegatedConstructorCall.source?.fakeElement(KtFakeSourceElementKind.DelegatingConstructorCall)
                             } else {
                                 delegatedConstructorSource
-                                    ?.lighterASTNode
+                                    ?.toNode()
                                     ?.getChildNodeByTokenId(KtNodeTypes.CONSTRUCTOR_CALLEE_ID)
                                     ?.toFirSourceElement(KtFakeSourceElementKind.DelegatingConstructorCall)
                                     ?: this@buildDelegatedConstructorCall.source
@@ -1318,7 +1317,7 @@ class TreeRawFirDeclarationBuilderProxy<Node : Any, Type : Any>(
      */
     private fun convertSecondaryConstructor(secondaryConstructor: Node, classWrapper: ClassWrapper<Node>): FirConstructor {
         var modifiers: ModifierList<Node>? = null
-        val firValueParameters = mutableListOf<ValueParameter>()
+        val firValueParameters = mutableListOf<ValueParameter<Node>>()
         var constructorDelegationCall: FirDelegatedConstructorCall? = null
         var block: Node? = null
 
@@ -2305,15 +2304,15 @@ class TreeRawFirDeclarationBuilderProxy<Node : Any, Type : Any>(
 
     private fun isCallTheFirstStatement(sourceElement: KtSourceElement): Boolean =
         org.jetbrains.kotlin.fir.analysis.isCallTheFirstStatement(
-            sourceElement.lighterASTNode,
-            { it.elementType },
-            { it.getChildren(sourceElement.treeStructure) })
+            sourceElement.toNode(),
+            { it.elementType.toTokenId() },
+            { it.getChildren() })
 
     private fun functionCallHasLabel(sourceElement: KtSourceElement): Boolean {
         return firstFunctionCallInBlockHasLambdaArgumentWithLabel(
-            sourceElement.lighterASTNode,
-            { it.elementType },
-            { it.getChildren(sourceElement.treeStructure) })
+            sourceElement.toNode(),
+            { it.elementType.toTokenId() },
+            { it.getChildren() })
     }
 
     /**
@@ -2361,7 +2360,7 @@ class TreeRawFirDeclarationBuilderProxy<Node : Any, Type : Any>(
                     index++
                 }
                 KtNodeTypes.SUPER_TYPE_CALL_ENTRY_ID -> convertConstructorInvocation(it).apply {
-                    superTypeCalls += DelegatedConstructorWrapper(first, second, it.toFirSourceElement())
+                    superTypeCalls += DelegatedConstructorWrapper(first, second, it.toFirSourceElement() as KtLightSourceElement)
                     superTypeRefs += first
                     index++
                 }
@@ -2764,7 +2763,7 @@ class TreeRawFirDeclarationBuilderProxy<Node : Any, Type : Any>(
     val FirUserTypeRef.isUnderscored: Boolean
         get() {
             val qualifierSource = qualifier.lastOrNull()?.source ?: return false
-            val text = qualifierSource.lighterASTNode.getChildNodeByTokenId(KtTokens.IDENTIFIER_ID)?.asText
+            val text = qualifierSource.toNode().getChildNodeByTokenId(KtTokens.IDENTIFIER_ID)?.asText
             return text == "_"
         }
 
@@ -2844,7 +2843,7 @@ class TreeRawFirDeclarationBuilderProxy<Node : Any, Type : Any>(
         functionSymbol: FirFunctionSymbol<*>,
         valueParameterDeclaration: NodeTypeAnalyzer.ValueParameterDeclaration,
         additionalAnnotations: List<FirAnnotation>
-    ): List<ValueParameter> {
+    ): List<ValueParameter<Node>> {
         return valueParameters.forEachChildrenReturnList { node, container ->
             when (node.elementType.toTokenId()) {
                 KtNodeTypes.VALUE_PARAMETER_ID -> container += convertValueParameter(
@@ -2865,7 +2864,7 @@ class TreeRawFirDeclarationBuilderProxy<Node : Any, Type : Any>(
         containingDeclarationSymbol: FirBasedSymbol<*>?,
         valueParameterDeclaration: NodeTypeAnalyzer.ValueParameterDeclaration,
         additionalAnnotations: List<FirAnnotation>
-    ): ValueParameter {
+    ): ValueParameter<Node> {
         var modifiers: ModifierList<Node>? = null
         var isVal = false
         var isVar = false
