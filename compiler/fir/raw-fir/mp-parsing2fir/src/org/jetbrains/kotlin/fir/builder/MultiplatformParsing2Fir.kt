@@ -60,8 +60,10 @@ class MultiplatformParsing2Fir(
             .build()
 
         parser.parse(syntaxTreeBuilder)
-        return buildLanguageSpecificLightTree(syntaxTreeBuilder, charSequence) {
-            KotlinLightTreeStructure(it)
-        }
+        return buildLanguageSpecificLightTree(
+            syntaxTreeBuilder, charSequence,
+            buildLanguageSpecificTreeStructure = { KotlinLightTreeStructure(it) },
+            isComment = { false },
+        )
     }
 }

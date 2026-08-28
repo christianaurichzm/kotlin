@@ -78,13 +78,15 @@ abstract class AbstractLightTreeRawFirBuilder(
         if (tokenType == KtNodeTypes.FUN) {
             return getParent()?.getLabelName()
         }
+        var result: String? = null
         this.forEachChildren {
+            if (result != null) return@forEachChildren
             when (it.tokenType) {
-                KtNodeTypes.LABEL_QUALIFIER -> return it.asText.replaceFirst("@", "").let(::unquoteIdentifier)
+                KtNodeTypes.LABEL_QUALIFIER -> result = it.asText.replaceFirst("@", "").let(::unquoteIdentifier)
             }
         }
 
-        return null
+        return result
     }
 
     override fun LighterASTNode.getChildren(): List<LighterASTNode> {
@@ -127,25 +129,31 @@ abstract class AbstractLightTreeRawFirBuilder(
     override val LighterASTNode?.receiverExpression: LighterASTNode?
         get() {
             var candidate: LighterASTNode? = null
+            var result: LighterASTNode? = null
             this?.forEachChildren {
+                if (result != null) return@forEachChildren
                 when (it.tokenType) {
-                    DOT, SAFE_ACCESS -> return if (candidate?.elementType != TokenType.ERROR_ELEMENT) candidate else null
+                    DOT, SAFE_ACCESS -> result = if (candidate?.elementType != TokenType.ERROR_ELEMENT) candidate else null
                     else -> candidate = it
                 }
             }
-            return null
+            return result
         }
 
     override val LighterASTNode?.selectorExpression: LighterASTNode?
         get() {
             var isSelector = false
+            var result: LighterASTNode? = null
             this?.forEachChildren {
+                if (result != null) return@forEachChildren
                 when (it.tokenType) {
                     DOT, SAFE_ACCESS -> isSelector = true
-                    else -> if (isSelector) return if (it.elementType != TokenType.ERROR_ELEMENT) it else null
+                    else -> if (isSelector) {
+                        result = if (it.elementType != TokenType.ERROR_ELEMENT) it else null
+                    }
                 }
             }
-            return null
+            return result
         }
 
     override val LighterASTNode?.indexExpressions: List<LighterASTNode>?

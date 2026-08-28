@@ -35,7 +35,7 @@ data class DestructuringDeclaration(
     val annotations: List<FirAnnotation>,
 ) {
     fun toFirDestructingDeclaration(
-        builder: AbstractRawFirBuilder<*>,
+        builder: AbstractRawFirBuilder<*, *>,
         moduleData: FirModuleData,
         tmpVariable: Boolean = true,
     ): FirBlock {
@@ -92,7 +92,7 @@ class DestructuringEntry(
     }
 }
 
-fun AbstractRawFirBuilder<*>.addDestructuringStatements(
+fun AbstractRawFirBuilder<*, *>.addDestructuringStatements(
     destination: MutableList<in FirVariable>,
     moduleData: FirModuleData,
     multiDeclaration: DestructuringDeclaration,

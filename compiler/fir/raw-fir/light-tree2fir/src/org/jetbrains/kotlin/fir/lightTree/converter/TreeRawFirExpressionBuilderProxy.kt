@@ -467,8 +467,6 @@ class TreeRawFirExpressionBuilderProxy<Node : Any, Type : Any>(
 
         private val inOperationsId = setOf(KtTokens.IN_MODIFIER_ID, KtTokens.NOT_IN_ID)
 
-        private val comparisonOperationsId = setOf(KtTokens.LT_ID, KtTokens.LTEQ_ID, KtTokens.GTEQ_ID, KtTokens.GT_ID)
-
         private val ktTokenToBinaryOperationNameMap: ImmutableBiMap<Int, Name> = ImmutableBiMap.builder<Int, Name>()
             .put(KtTokens.MUL_ID, OperatorNameConventions.TIMES)
             .put(KtTokens.PLUS_ID, OperatorNameConventions.PLUS)

@@ -221,8 +221,8 @@ fun FirExpression.generateComparisonExpression(
     baseSource: KtSourceElement?,
     operationReferenceSource: KtSourceElement?,
 ): FirComparisonExpression {
-    require(operatorToken in OperatorConventions.COMPARISON_OPERATIONS) {
-        "$operatorToken is not in ${OperatorConventions.COMPARISON_OPERATIONS}"
+    require(operatorToken in comparisonOperationsId) {
+        "$operatorToken is not in $comparisonOperationsId"
     }
 
     val compareToCall = createConventionCall(
@@ -246,6 +246,13 @@ fun FirExpression.generateComparisonExpression(
         this.compareToCall = compareToCall
     }
 }
+
+val comparisonOperationsId: Set<Int> = setOf(
+    org.jetbrains.kotlin.kmp.lexer.KtTokens.LT_ID,
+    org.jetbrains.kotlin.kmp.lexer.KtTokens.LTEQ_ID,
+    org.jetbrains.kotlin.kmp.lexer.KtTokens.GTEQ_ID,
+    org.jetbrains.kotlin.kmp.lexer.KtTokens.GT_ID
+)
 
 private fun FirExpression.createConventionCall(
     operationReferenceSource: KtSourceElement?,
@@ -703,13 +710,13 @@ fun List<FirAnnotationCall>.filterUseSiteTarget(target: AnnotationUseSiteTarget)
         }
     }
 
-fun AbstractRawFirBuilder<*>.createReceiverParameter(
+fun AbstractRawFirBuilder<*, *>.createReceiverParameter(
     typeRefCalculator: () -> FirTypeRef,
     moduleData: FirModuleData,
     containingCallableSymbol: FirCallableSymbol<*>,
 ): FirReceiverParameter = buildReceiverParameter {
     symbol = FirReceiverParameterSymbol()
-    withContainerSymbol(symbol) {
+    context.withContainerSymbol(symbol) {
         val typeRef = typeRefCalculator()
         source = typeRef.source?.fakeElement(KtFakeSourceElementKind.ReceiverFromType)
 
