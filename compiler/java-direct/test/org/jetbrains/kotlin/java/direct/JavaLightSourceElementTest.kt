@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.KtLightSourceElement
 import org.jetbrains.kotlin.KtRealSourceElementKind
 import org.jetbrains.kotlin.java.direct.parse.JAVA_DIRECT_PLACEHOLDER_TYPE
 import org.jetbrains.kotlin.java.direct.parse.JavaLightAstNode
+import org.jetbrains.kotlin.java.direct.parse.JavaLightTreeStructure
 import org.jetbrains.kotlin.java.direct.parse.parseJavaToLightTree
 import org.jetbrains.kotlin.kmp.tree.LightNode
 import org.jetbrains.kotlin.kmp.tree.MultiplatformBasedLightTree
@@ -46,7 +47,7 @@ class JavaLightSourceElementTest {
             JavaLightAstNode(this, node),
             getStartOffset(node),
             getEndOffset(node),
-            lightSourceTreeStructure,
+            lightSourceTreeStructure as JavaLightTreeStructure,
             kind,
         )
 

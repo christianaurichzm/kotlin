@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.KtSourceElementKind
 import org.jetbrains.kotlin.KtLightSourceElement
 import org.jetbrains.kotlin.fir.java.JavaDirectSourceElementOwner
 import org.jetbrains.kotlin.java.direct.parse.JavaLightAstNode
+import org.jetbrains.kotlin.java.direct.parse.JavaLightTreeStructure
 import org.jetbrains.kotlin.kmp.tree.LightNode
 import org.jetbrains.kotlin.kmp.tree.MultiplatformBasedLightTree
 import org.jetbrains.kotlin.load.java.structure.JavaElement
@@ -41,7 +42,7 @@ abstract class JavaElementOverAst(
             JavaLightAstNode(tree, node),
             tree.getStartOffset(node),
             tree.getEndOffset(node),
-            tree.lightSourceTreeStructure,
+            tree.lightSourceTreeStructure as JavaLightTreeStructure,
             kind,
         )
 

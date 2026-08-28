@@ -5,15 +5,12 @@
 
 package org.jetbrains.kotlin.kmp.tree
 
-import com.intellij.java.syntax.JavaSyntaxDefinition
-import com.intellij.lang.LighterASTNode
 import com.intellij.platform.syntax.SyntaxElementType
 import com.intellij.platform.syntax.element.SyntaxTokenTypes
 import com.intellij.platform.syntax.lexer.TokenList
 import com.intellij.platform.syntax.parser.ProductionMarkerList
 import com.intellij.platform.syntax.parser.SyntaxTreeBuilder
 import com.intellij.platform.syntax.parser.prepareProduction
-import com.intellij.util.diff.FlyweightCapableTreeStructure
 import org.jetbrains.annotations.TestOnly
 
 /**
@@ -77,14 +74,14 @@ open class MultiplatformBasedLightTree(
     /**
      * TBD
      */
-    buildLanguageSpecificTreeStructure: (MultiplatformBasedLightTree) -> FlyweightCapableTreeStructure<LighterASTNode>,
+    buildLanguageSpecificTreeStructure: (MultiplatformBasedLightTree) -> Any
 ) {
     /**
      * Memoized [FlyweightCapableTreeStructure] adapter over this tree, used to build
      * `KtLightSourceElement`s for java-direct FIR declarations. One instance per tree, so all source
      * elements from the same file share a single tree structure (stable identity/equality).
      */
-    val lightSourceTreeStructure: FlyweightCapableTreeStructure<LighterASTNode> by lazy(LazyThreadSafetyMode.PUBLICATION) {
+    val lightSourceTreeStructure: Any by lazy(LazyThreadSafetyMode.PUBLICATION) {
         buildLanguageSpecificTreeStructure(this)
     }
 
@@ -197,7 +194,7 @@ private class ChildrenList(private val indices: IntArray) : AbstractList<LightNo
 fun buildLanguageSpecificLightTree(
     builder: SyntaxTreeBuilder,
     source: CharSequence,
-    buildLanguageSpecificTreeStructure: (MultiplatformBasedLightTree) -> FlyweightCapableTreeStructure<LighterASTNode>,
+    buildLanguageSpecificTreeStructure: (MultiplatformBasedLightTree) -> Any,
 ): MultiplatformBasedLightTree {
     val productionMarkers = prepareProduction(builder).productionMarkers
     val tokens = builder.tokens
