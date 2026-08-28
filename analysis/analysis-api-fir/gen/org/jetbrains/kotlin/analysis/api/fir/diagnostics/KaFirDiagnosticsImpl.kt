@@ -6223,6 +6223,11 @@ internal class PositionedValueArgumentForJavaAnnotationImpl(
     token: KaLifetimeToken,
 ) : KaAbstractFirDiagnostic<KtExpression>(firDiagnostic, token), KaFirDiagnostic.PositionedValueArgumentForJavaAnnotation
 
+internal class PositionedValueArgumentForJavaAnnotationWarningImpl(
+    firDiagnostic: KtPsiDiagnostic,
+    token: KaLifetimeToken,
+) : KaAbstractFirDiagnostic<KtExpression>(firDiagnostic, token), KaFirDiagnostic.PositionedValueArgumentForJavaAnnotationWarning
+
 internal class RedundantRepeatableAnnotationImpl(
     override val kotlinRepeatable: FqName,
     override val javaRepeatable: FqName,
