@@ -195,6 +195,7 @@ fun buildLanguageSpecificLightTree(
     builder: SyntaxTreeBuilder,
     source: CharSequence,
     buildLanguageSpecificTreeStructure: (MultiplatformBasedLightTree) -> Any,
+    isComment: (SyntaxElementType) -> Boolean,
 ): MultiplatformBasedLightTree {
     val productionMarkers = prepareProduction(builder).productionMarkers
     val tokens = builder.tokens
@@ -220,7 +221,8 @@ fun buildLanguageSpecificLightTree(
         childrenByIndex[idx] = emptyChildren
     }
     buildChildrenIndex(
-        productionMarkers, tokens, markerCount, markerCount, doneForStart, errorFlags, childrenByIndex, emptyChildren,
+        productionMarkers, tokens, markerCount, markerCount,
+        doneForStart, errorFlags, childrenByIndex, emptyChildren, isComment
     )
 
     val rootNodeType = if (markerCount > 0)
@@ -336,14 +338,14 @@ private fun buildChildrenIndex(
     errorFlags: BooleanArray,
     childrenByIndex: Array<List<LightNode>>,
     emptyChildren: List<LightNode>,
+    isComment: (SyntaxElementType) -> Boolean,
 ) {
     fun isIncludedToken(t: Int, isRoot: Boolean): Boolean {
         val type = tokens.getTokenType(t) ?: return false
         if (tokens.getTokenStart(t) == tokens.getTokenEnd(t)) return false
         if (type === SyntaxTokenTypes.WHITE_SPACE) return false
         if (type === SyntaxTokenTypes.BAD_CHARACTER) return false
-        // TODO: abstract from language?
-        if (isRoot && type in JavaSyntaxDefinition.comments) return false
+        if (isRoot && isComment(type)) return false
         return true
     }
 

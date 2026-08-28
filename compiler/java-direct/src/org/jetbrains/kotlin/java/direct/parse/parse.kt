@@ -46,6 +46,10 @@ fun parse(languageLevel: LanguageLevel, builder: SyntaxTreeBuilder) {
  */
 fun parseJavaToLightTree(charSequence: CharSequence, start: Int): MultiplatformBasedLightTree {
     val builder = parseJavaToSyntaxTreeBuilder(charSequence, start)
-    return buildLanguageSpecificLightTree(builder, charSequence, { JavaLightTreeStructure(it) })
+    return buildLanguageSpecificLightTree(
+        builder, charSequence,
+        buildLanguageSpecificTreeStructure = { JavaLightTreeStructure(it) },
+        isComment = { it in JavaSyntaxDefinition.comments },
+    )
 }
 
