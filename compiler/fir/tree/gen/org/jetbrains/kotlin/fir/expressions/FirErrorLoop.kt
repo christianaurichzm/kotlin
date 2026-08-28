@@ -23,9 +23,9 @@ abstract class FirErrorLoop : FirLoop(), FirDiagnosticHolder {
     abstract override val source: KtSourceElement?
     abstract override val annotations: List<FirAnnotation>
     abstract override val block: FirBlock
-    abstract override val condition: FirExpression
     abstract override val label: FirLabel?
     abstract override val diagnostic: ConeDiagnostic
+    abstract val condition: FirExpression
 
     override fun <R, D> accept(visitor: FirVisitor<R, D>, data: D): R =
         visitor.visitErrorLoop(this, data)
@@ -40,7 +40,7 @@ abstract class FirErrorLoop : FirLoop(), FirDiagnosticHolder {
 
     abstract override fun <D> transformBlock(transformer: FirTransformer<D>, data: D): FirErrorLoop
 
-    abstract override fun <D> transformCondition(transformer: FirTransformer<D>, data: D): FirErrorLoop
-
     abstract override fun <D> transformLabel(transformer: FirTransformer<D>, data: D): FirErrorLoop
+
+    abstract fun <D> transformCondition(transformer: FirTransformer<D>, data: D): FirErrorLoop
 }

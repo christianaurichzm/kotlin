@@ -25,28 +25,33 @@ import org.jetbrains.kotlin.fir.visitors.transformInplace
 internal class FirWhileLoopImpl(
     override val source: KtSourceElement?,
     override var annotations: MutableOrEmptyList<FirAnnotation>,
+    override var block: FirBlock,
     override var label: FirLabel?,
     override var condition: FirExpression,
-    override var block: FirBlock,
 ) : FirWhileLoop() {
 
     override fun <R, D> acceptChildren(visitor: FirVisitor<R, D>, data: D) {
         annotations.forEach { it.accept(visitor, data) }
+        block.accept(visitor, data)
         label?.accept(visitor, data)
         condition.accept(visitor, data)
-        block.accept(visitor, data)
     }
 
     override fun <D> transformChildren(transformer: FirTransformer<D>, data: D): FirWhileLoopImpl {
         transformAnnotations(transformer, data)
+        transformBlock(transformer, data)
         transformLabel(transformer, data)
         transformCondition(transformer, data)
-        transformBlock(transformer, data)
         return this
     }
 
     override fun <D> transformAnnotations(transformer: FirTransformer<D>, data: D): FirWhileLoopImpl {
         annotations.transformInplace(transformer, data)
+        return this
+    }
+
+    override fun <D> transformBlock(transformer: FirTransformer<D>, data: D): FirWhileLoopImpl {
+        block = block.transform(transformer, data)
         return this
     }
 
@@ -57,11 +62,6 @@ internal class FirWhileLoopImpl(
 
     override fun <D> transformCondition(transformer: FirTransformer<D>, data: D): FirWhileLoopImpl {
         condition = condition.transform(transformer, data)
-        return this
-    }
-
-    override fun <D> transformBlock(transformer: FirTransformer<D>, data: D): FirWhileLoopImpl {
-        block = block.transform(transformer, data)
         return this
     }
 
