@@ -19,7 +19,8 @@ internal object KarLayout {
     const val CINTEROP_KLIBS_DIRECTORY_NAME = "cinterop"
     const val RESOURCES_DIRECTORY_NAME = "resources"
 
-    const val PSM_FILE_PATH = "$METADATA_DIRECTORY_NAME/$MULTIPLATFORM_PROJECT_METADATA_JSON_FILE_NAME"
+    const val PSM_FILE_NAME = MULTIPLATFORM_PROJECT_METADATA_JSON_FILE_NAME
+    const val PSM_FILE_PATH = "$METADATA_DIRECTORY_NAME/$PSM_FILE_NAME"
     const val MANIFEST_FILE_PATH = "manifest.json"
 
     const val PACK_TASK_NAME = "packKotlinArchive"

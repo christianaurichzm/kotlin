@@ -38,6 +38,7 @@ internal class KotlinArchiveEntry(
     @get:Input
     val pathPrefix: Provider<String>,
     @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
     val files: FileCollection,
 )
 
@@ -67,6 +68,7 @@ internal abstract class AssembleKotlinArchiveTask @Inject constructor(
     }
 
     @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
     abstract val projectStructureMetadataFile: RegularFileProperty
 
     @get:OutputDirectory
@@ -92,7 +94,7 @@ internal abstract class AssembleKotlinArchiveTask @Inject constructor(
             }
             spec.from(projectStructureMetadataFile) { psmSpec ->
                 psmSpec.into(KarLayout.METADATA_DIRECTORY_NAME)
-                psmSpec.rename { KarLayout.PSM_FILE_PATH.substringAfterLast('/') }
+                psmSpec.rename { KarLayout.PSM_FILE_NAME }
             }
         }
 
