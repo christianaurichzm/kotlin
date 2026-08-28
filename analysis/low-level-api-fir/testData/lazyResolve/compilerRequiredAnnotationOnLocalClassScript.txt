@@ -152,4 +152,3 @@ FILE: [ResolvedTo(BODY_RESOLVE)] compilerRequiredAnnotationOnLocalClassScript.kt
             }
 
         }
-

@@ -1767,7 +1767,6 @@ open class FirExpressionsResolveTransformer(transformer: FirAbstractBodyResolveT
                 symbol.constructType()
             }
             else -> {
-                if (!shouldComputeTypeOfGetClassCallWithNotQualifierInLhs(getClassCall)) return transformedGetClassCall
                 val resultType = lhs.resolvedType
                 if (resultType is ConeErrorType) {
                     resultType
@@ -1780,10 +1779,6 @@ open class FirExpressionsResolveTransformer(transformer: FirAbstractBodyResolveT
         transformedGetClassCall.resultType = StandardClassIds.KClass.constructClassLikeType(arrayOf(typeOfExpression), false)
         dataFlowAnalyzer.exitGetClassCall(transformedGetClassCall)
         return transformedGetClassCall
-    }
-
-    protected open fun shouldComputeTypeOfGetClassCallWithNotQualifierInLhs(getClassCall: FirGetClassCall): Boolean {
-        return true
     }
 
     override fun transformLiteralExpression(

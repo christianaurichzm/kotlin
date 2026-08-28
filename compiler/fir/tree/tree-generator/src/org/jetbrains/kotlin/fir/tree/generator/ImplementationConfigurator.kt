@@ -588,6 +588,7 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
 
         impl(namedReference, "FirSimpleNamedReference") {
             publicImplementation()
+            kind = OpenClass
         }
 
         noImpl(namedReferenceWithCandidateBase)

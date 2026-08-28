@@ -306,4 +306,3 @@ FILE: [ResolvedTo(BODY_RESOLVE)] scriptWithTypeAnnotationsOnDeclaration.kts
         public final [ResolvedTo(BODY_RESOLVE)] [ScriptTopLevelDeclaration=true] fun explicitType(): R|@R|foo/Anno|(position = <strcat>(String(return type: ), R|foo/constant|) [evaluated = String(return type: 0)])  kotlin/collections/List<@R|foo/Anno|(position = <strcat>(String(nested return type: ), R|foo/constant|) [evaluated = String(nested return type: 0)])  kotlin/collections/Collection<@R|foo/Anno|(position = <strcat>(String(nested nested return type: ), R|foo/constant|) [evaluated = String(nested nested return type: 0)])  kotlin/String>>| {
             ^explicitType Int(0)
         }
-

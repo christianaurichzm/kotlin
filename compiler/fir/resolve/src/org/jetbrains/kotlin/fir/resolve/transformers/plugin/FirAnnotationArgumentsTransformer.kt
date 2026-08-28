@@ -5,15 +5,12 @@
 
 package org.jetbrains.kotlin.fir.resolve.transformers.plugin
 
-import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.fir.FirSession
-import org.jetbrains.kotlin.fir.containingClassLookupTag
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.expressions.*
-import org.jetbrains.kotlin.fir.expressions.builder.buildPropertyAccessExpression
-import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
+import org.jetbrains.kotlin.fir.references.FirErrorNamedReference
 import org.jetbrains.kotlin.fir.references.builder.buildErrorNamedReference
-import org.jetbrains.kotlin.fir.references.builder.buildSimpleNamedReference
+import org.jetbrains.kotlin.fir.references.impl.FirSimpleNamedReferenceForCompilerRequiredEnumInAnnotation
 import org.jetbrains.kotlin.fir.references.toResolvedBaseSymbol
 import org.jetbrains.kotlin.fir.resolve.ResolutionMode
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
@@ -24,9 +21,7 @@ import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.BodyResolveCon
 import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirAbstractBodyResolveTransformerDispatcher
 import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirDeclarationsResolveTransformer
 import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirExpressionsResolveTransformer
-import org.jetbrains.kotlin.fir.symbols.impl.FirEnumEntrySymbol
 import org.jetbrains.kotlin.fir.visitors.transformSingle
-import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.util.PrivateForInline
 
 open class FirAnnotationArgumentsTransformer(
@@ -92,77 +87,26 @@ private class FirExpressionTransformerForAnnotationArguments(
         qualifiedAccessExpression: FirQualifiedAccessExpression,
         data: ResolutionMode
     ): FirExpression {
-        if (qualifiedAccessExpression is FirPropertyAccessExpression) {
-            val calleeReference = qualifiedAccessExpression.calleeReference
-            if (calleeReference is FirResolvedNamedReference) {
-                val resolvedSymbol = calleeReference.resolvedSymbol
-                if (resolvedSymbol is FirEnumEntrySymbol && resolvedSymbol.containingClassLookupTag()?.classId in session.annotationPlatformSupport.requiredArguments) {
-                    return resolveSpecialPropertyAccess(qualifiedAccessExpression, calleeReference, resolvedSymbol, data)
-                }
-            }
-        }
+        val compilerRequiredReference =
+            qualifiedAccessExpression.calleeReference as? FirSimpleNamedReferenceForCompilerRequiredEnumInAnnotation
+                ?: return super.transformQualifiedAccessExpression(qualifiedAccessExpression, data)
 
-        return super.transformQualifiedAccessExpression(qualifiedAccessExpression, data)
-    }
+        val resolved = super.transformQualifiedAccessExpression(qualifiedAccessExpression, data)
+        if (resolved !is FirQualifiedAccessExpression) return resolved
 
-    private fun resolveSpecialPropertyAccess(
-        originalAccess: FirPropertyAccessExpression,
-        originalCalleeReference: FirResolvedNamedReference,
-        originalResolvedSymbol: FirEnumEntrySymbol,
-        data: ResolutionMode,
-    ): FirExpression {
-        val accessCopyForResolution = buildPropertyAccessExpression {
-            source = originalAccess.source
-            typeArguments.addAll(originalAccess.typeArguments)
+        val argumentsPhaseReference = resolved.calleeReference
+        if (argumentsPhaseReference is FirErrorNamedReference) return resolved
 
-            val originalResolvedQualifier = originalAccess.explicitReceiver?.unwrapSmartcastExpression()
-            if (originalResolvedQualifier is FirResolvedQualifier) {
-                val fqName = originalResolvedQualifier.classId
-                    ?.let { if (originalResolvedQualifier.explicitParent != null) it.asSingleFqName() else it.relativeClassName }
-                    ?: originalResolvedQualifier.packageFqName
-                explicitReceiver = generatePropertyAccessExpression(fqName, originalResolvedQualifier.source)
-            }
-
-            calleeReference = buildSimpleNamedReference {
-                source = originalCalleeReference.source
-                name = originalCalleeReference.name
-            }
-        }
-
-        val resolved = super.transformQualifiedAccessExpression(accessCopyForResolution, data)
-
-        if (resolved is FirQualifiedAccessExpression) {
-            // The initial resolution must have been to an enum entry. Report ambiguity if symbolFromArgumentsPhase is different to
-            // original symbol including null (meaning we would resolve to something other than an enum entry).
-            val symbolFromArgumentsPhase = resolved.calleeReference.toResolvedBaseSymbol()
-            if (originalResolvedSymbol != symbolFromArgumentsPhase) {
-                resolved.replaceCalleeReference(buildErrorNamedReference {
-                    source = resolved.calleeReference.source
-                    diagnostic = ConeAmbiguouslyResolvedAnnotationArgument(originalResolvedSymbol, symbolFromArgumentsPhase)
-                    name = accessCopyForResolution.calleeReference.name
-                })
-            }
+        val symbolFromArgumentsPhase = argumentsPhaseReference.toResolvedBaseSymbol()
+        if (compilerRequiredReference.symbol != symbolFromArgumentsPhase) {
+            resolved.replaceCalleeReference(buildErrorNamedReference {
+                source = resolved.calleeReference.source
+                diagnostic = ConeAmbiguouslyResolvedAnnotationArgument(compilerRequiredReference.symbol, symbolFromArgumentsPhase)
+                name = compilerRequiredReference.name
+            })
         }
 
         return resolved
-    }
-
-    private fun generatePropertyAccessExpression(fqName: FqName, accessSource: KtSourceElement?): FirPropertyAccessExpression {
-        var result: FirPropertyAccessExpression? = null
-
-        val pathSegments = fqName.pathSegments()
-        for ([index, pathSegment] in pathSegments.withIndex()) {
-            result = buildPropertyAccessExpression {
-                calleeReference = buildSimpleNamedReference { name = pathSegment }
-                explicitReceiver = result
-
-                if (index == pathSegments.lastIndex) {
-                    source = accessSource
-                }
-            }
-        }
-
-        return result ?: error("Got an empty ClassId")
     }
 }
 

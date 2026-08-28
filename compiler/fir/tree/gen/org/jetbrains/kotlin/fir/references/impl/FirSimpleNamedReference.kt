@@ -17,7 +17,7 @@ import org.jetbrains.kotlin.fir.visitors.FirTransformer
 import org.jetbrains.kotlin.fir.visitors.FirVisitor
 import org.jetbrains.kotlin.name.Name
 
-class FirSimpleNamedReference @FirImplementationDetail constructor(
+open class FirSimpleNamedReference @FirImplementationDetail constructor(
     override val source: KtSourceElement?,
     override val name: Name,
 ) : FirNamedReference() {
