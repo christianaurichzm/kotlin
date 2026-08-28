@@ -64,76 +64,31 @@ class LightTreeRawFirDeclarationBuilder(
     context: Context<LighterASTNode> = Context(),
 ) : AbstractLightTreeRawFirBuilder(session, tree, context) {
 
-    private val expressionConverter = LightTreeRawFirExpressionBuilder(session, tree, this, context)
     private val headerMode = session.languageVersionSettings.getFlag(AnalysisFlags.headerMode)
-    private val builderProxy = TreeRawFirDeclarationBuilderProxy(
+    private val expressionConverter = TreeRawFirExpressionBuilderProxy(this, context, baseModuleData, headerMode)
+    private val declarationConverter = TreeRawFirDeclarationBuilderProxy(
         this, context, baseModuleData, expressionConverter, headerMode, baseScopeProvider
     )
+
+    init {
+        expressionConverter.declarationBuilder = declarationConverter
+    }
 
     /**
      * [org.jetbrains.kotlin.parsing.KotlinParsing.parseFile]
      * [org.jetbrains.kotlin.parsing.KotlinParsing.parsePreamble]
      */
     fun convertFile(file: LighterASTNode, sourceFile: KtSourceFile, linesMapping: KtSourceFileLinesMapping): FirFile {
-        if (file.tokenType != KtNodeTypes.FILE) {
-            //TODO throw error
-            throw Exception()
-        }
+        return declarationConverter.convertFile(file, sourceFile, linesMapping)
+    }
 
-        val fileSymbol = FirFileSymbol()
-        val fileAnnotations = mutableListOf<FirAnnotation>()
-        val importList = mutableListOf<FirImport>()
-        val firDeclarationList = mutableListOf<FirDeclaration>()
-        val modifierList = mutableListOf<LighterASTNode>()
-        val scriptNodes = mutableListOf<LighterASTNode>()
-        context.packageFqName = FqName.ROOT
-        var packageDirective: FirPackageDirective? = null
-        file.forEachChildren { child ->
-            when (child.tokenType) {
-                FILE_ANNOTATION_LIST -> {
-                    context.withContainerSymbol(fileSymbol) {
-                        convertAnnotationsOnlyTo(child, fileAnnotations)
-                    }
-                }
-                PACKAGE_DIRECTIVE -> {
-                    packageDirective = convertPackageDirective(child).also { context.packageFqName = it.packageFqName }
-                }
-                IMPORT_LIST -> importList += convertImportDirectives(child)
-                CLASS, OBJECT_DECLARATION -> firDeclarationList += convertClass(child)
-                FUN -> firDeclarationList += convertFunctionDeclaration(child) as FirDeclaration
-                KtNodeTypes.PROPERTY -> firDeclarationList += convertPropertyDeclaration(child)
-                TYPEALIAS -> firDeclarationList += convertTypeAlias(child)
-                DESTRUCTURING_DECLARATION -> {
-                    val initializer = buildFirDestructuringDeclarationInitializer(child)
-                    firDeclarationList += buildErrorNonLocalDestructuringDeclaration(
-                        child.toFirSourceElement(), initializer, baseModuleData
-                    )
-                }
-                SCRIPT -> scriptNodes += child
-                MODIFIER_LIST -> modifierList += child
-            }
-        }
-
-        modifierList.forEach {
-            firDeclarationList += buildErrorNonLocalDeclarationForDanglingModifierList(it)
-        }
-
-        return buildFile {
-            symbol = fileSymbol
-            source = file.toFirSourceElement()
-            origin = FirDeclarationOrigin.Source
-            moduleData = baseModuleData
-            name = sourceFile.name
-            this.sourceFile = sourceFile
-            this.sourceFileLinesMapping = linesMapping
-            this.packageDirective = packageDirective ?: buildPackageDirective { packageFqName = context.packageFqName }
-            annotations += fileAnnotations
-            imports += importList
-            for (scriptNode in scriptNodes) {
-                firDeclarationList += convertScriptOrSnippets(scriptNode, sourceFile, this@buildFile)
-            }
-            declarations += firDeclarationList
-        }
+    override fun convertScript(
+        script: LighterASTNode,
+        scriptSource: KtSourceElement,
+        fileName: String,
+        setup: FirScriptBuilder.() -> Unit,
+    ): FirScript {
+        return declarationConverter.convertScript(script, scriptSource, fileName, setup)
     }
 
     /**
@@ -184,101 +139,6 @@ class LightTreeRawFirDeclarationBuilder(
     }
 
     /*****    PREAMBLE    *****/
-    /**
-     * @see org.jetbrains.kotlin.parsing.KotlinParsing.parsePackageName
-     */
-    private fun convertPackageDirective(packageNode: LighterASTNode): FirPackageDirective {
-        var packageName: FqName = FqName.ROOT
-        packageNode.forEachChildren {
-            when (it.tokenType) {
-                //TODO separate logic for both expression types
-                DOT_QUALIFIED_EXPRESSION, REFERENCE_EXPRESSION -> packageName = parsePackageName(it)
-            }
-        }
-        return buildPackageDirective {
-            packageFqName = packageName
-            source = packageNode.toFirSourceElement()
-        }
-    }
-
-    private fun parsePackageName(node: LighterASTNode): FqName {
-        var packageName: FqName = FqName.ROOT
-        val parts = parsePackageParts(node)
-
-        for (part in parts) {
-            packageName = packageName.child(Name.identifier(part))
-        }
-
-        return packageName
-    }
-
-    private fun parsePackageParts(node: LighterASTNode): List<String> {
-        fun parse(node: LighterASTNode): MutableList<String> {
-            if (node.tokenType == DOT_QUALIFIED_EXPRESSION) {
-                val children = node.getChildren(tree)
-
-                if (children.size == 3) {
-                    return parse(children.first()).apply {
-                        add(children.last().getAsStringWithoutBacktick())
-                    }
-                }
-            }
-
-            if (node.tokenType == REFERENCE_EXPRESSION) {
-                return mutableListOf(node.getAsStringWithoutBacktick())
-            }
-
-            return mutableListOf()
-        }
-
-        return parse(node)
-    }
-
-    private fun convertImportAlias(importAlias: LighterASTNode): Pair<String, KtSourceElement>? {
-        importAlias.forEachChildren {
-            when (it.tokenType) {
-                IDENTIFIER -> return Pair(it.asText, it.toFirSourceElement())
-            }
-        }
-
-        return null
-    }
-
-    /**
-     * @see org.jetbrains.kotlin.parsing.KotlinParsing.parseImportDirective
-     */
-    private fun convertImportDirective(importDirective: LighterASTNode): FirImport {
-        var importedFqName: FqName? = null
-        var isAllUnder = false
-        var aliasName: String? = null
-        var aliasSource: KtSourceElement? = null
-        importDirective.forEachChildren { child ->
-            when (child.tokenType) {
-                REFERENCE_EXPRESSION, DOT_QUALIFIED_EXPRESSION -> {
-                    importedFqName = mutableListOf<String>()
-                        .apply { collectSegments(child) }
-                        .joinToString(".")
-                        .let { FqName(it) }
-                }
-                MUL -> isAllUnder = true
-                IMPORT_ALIAS -> {
-                    val importAlias = convertImportAlias(child)
-                    if (importAlias != null) {
-                        aliasName = importAlias.first
-                        aliasSource = importAlias.second
-                    }
-                }
-            }
-        }
-
-        return buildImport {
-            source = importDirective.toFirSourceElement()
-            this.importedFqName = importedFqName
-            this.isAllUnder = isAllUnder
-            this.aliasName = aliasName?.let { Name.identifier(it) }
-            this.aliasSource = aliasSource
-        }
-    }
 
     private fun MutableList<String>.collectSegments(expression: LighterASTNode) {
         when (expression.tokenType) {
@@ -289,17 +149,6 @@ class LightTreeRawFirDeclarationBuilder(
                 }
             }
             else -> {}
-        }
-    }
-
-    /**
-     * @see org.jetbrains.kotlin.parsing.KotlinParsing.parseImportDirectives
-     */
-    private fun convertImportDirectives(importList: LighterASTNode): List<FirImport> {
-        return importList.forEachChildrenReturnList { node, container ->
-            when (node.tokenType) {
-                IMPORT_DIRECTIVE -> container += convertImportDirective(node)
-            }
         }
     }
 
@@ -720,99 +569,6 @@ class LightTreeRawFirDeclarationBuilder(
     }
 
     /**
-     * see PsiRawFirBuilder.Visitor.visitObjectLiteralExpression
-     *
-     * @see org.jetbrains.kotlin.parsing.KotlinExpressionParsing.parseObjectLiteral
-     */
-    fun convertObjectLiteral(objectLiteral: LighterASTNode): FirAnonymousObjectExpression {
-        return context.withChildClassName(SpecialNames.ANONYMOUS, forceLocalContext = true, isExpect = false) {
-            var delegatedFieldsMap: Map<Int, FirFieldSymbol>? = null
-            buildAnonymousObjectExpression {
-                source = objectLiteral.toFirSourceElement()
-
-                val objectDeclaration = objectLiteral.getChildNodesByType(OBJECT_DECLARATION).first()
-                var modifiers: ModifierList<LighterASTNode>? = null
-                var primaryConstructor: LighterASTNode? = null
-                val superTypeRefs = mutableListOf<FirTypeRef>()
-                var delegatedSuperTypeRef: FirTypeRef? = null
-                var classBody: LighterASTNode? = null
-                var delegatedConstructorSource: KtLightSourceElement? = null
-                var delegatedSuperCalls: List<DelegatedConstructorWrapper>? = null
-                var delegateFields: List<FirField>? = null
-
-                objectDeclaration.forEachChildren { child ->
-                    when (child.tokenType) {
-                        MODIFIER_LIST -> {
-                            modifiers = convertModifierList(child)
-                        }
-                        PRIMARY_CONSTRUCTOR -> primaryConstructor = child
-                        SUPER_TYPE_LIST -> convertDelegationSpecifiers(child).let { specifiers ->
-                            delegatedSuperTypeRef = specifiers.superTypeCalls.lastOrNull()?.delegatedSuperTypeRef
-                            superTypeRefs += specifiers.superTypesRef
-                            delegatedConstructorSource = specifiers.superTypeCalls.lastOrNull()?.source
-                            delegateFields = specifiers.delegateFieldsMap.values.map { it.fir }
-                            delegatedFieldsMap = specifiers.delegateFieldsMap.takeIf { it.isNotEmpty() }
-                            delegatedSuperCalls = specifiers.superTypeCalls
-                        }
-                        CLASS_BODY -> classBody = child
-                    }
-                }
-                val companionBlockCollector = CompanionBlockCollector()
-                anonymousObject = buildAnonymousObject {
-                    source = objectDeclaration.toFirSourceElement()
-                    origin = FirDeclarationOrigin.Source
-                    moduleData = baseModuleData
-                    classKind = ClassKind.CLASS
-                    scopeProvider = baseScopeProvider
-                    symbol = FirAnonymousObjectSymbol(context.packageFqName)
-                    status = FirDeclarationStatusImpl(Visibilities.Local, Modality.FINAL)
-                    context.appendOuterTypeParameters(ignoreLastLevel = false, typeParameters)
-                    val delegatedSelfType = objectDeclaration.toDelegatedSelfType(this)
-                    registerSelfType(delegatedSelfType)
-
-                    superTypeRefs.ifEmpty {
-                        superTypeRefs += implicitAnyType
-                        delegatedSuperTypeRef = implicitAnyType
-                    }
-                    val delegatedSuperType = delegatedSuperTypeRef ?: FirImplicitTypeRefImplWithoutSource
-
-                    modifiers?.convertAnnotationsTo(annotations)
-                    this.superTypeRefs += superTypeRefs
-
-                    val classWrapper = ClassWrapper(
-                        modifiers ?: ModifierList(),
-                        ClassKind.OBJECT,
-                        this,
-                        hasSecondaryConstructor = classBody.getChildNodesByType(SECONDARY_CONSTRUCTOR).isNotEmpty(),
-                        hasDefaultConstructor = false,
-                        delegatedSelfTypeRef = delegatedSelfType,
-                        delegatedSuperTypeRef = delegatedSuperType,
-                        delegatedSuperCalls = delegatedSuperCalls ?: emptyList(),
-                        companionBlockCollector,
-                    )
-                    //parse primary constructor
-                    convertPrimaryConstructor(
-                        primaryConstructor,
-                        delegatedSelfType.source,
-                        classWrapper,
-                        delegatedConstructorSource,
-                        containingClassIsExpectClass = false
-                    )?.let { this.declarations += it.firConstructor }
-                    delegateFields?.let { this.declarations += it }
-
-                    //parse declarations
-                    classBody?.let {
-                        this.declarations += convertClassBody(it, classWrapper)
-                    }
-                }.apply {
-                    this.delegateFieldsMap = delegatedFieldsMap
-                    companionBlockCollector.toCompanionBlockInfoOrNull()?.let { companionBlocks = it }
-                }
-            }
-        }
-    }
-
-    /**
      * @see org.jetbrains.kotlin.parsing.KotlinParsing.parseEnumEntry
      */
     private fun convertEnumEntry(enumEntry: LighterASTNode, classWrapper: ClassWrapper<LighterASTNode>): FirEnumEntry {
@@ -1183,16 +939,6 @@ class LightTreeRawFirDeclarationBuilder(
                 }
             }
             firBlock
-        }
-    }
-
-    private fun convertScriptInitializer(
-        scriptInitializer: LighterASTNode,
-        containingDeclarationSymbol: FirBasedSymbol<*>,
-        isLocal: Boolean = false,
-    ): FirAnonymousInitializer {
-        return createAnonymousInitializer(scriptInitializer, containingDeclarationSymbol, isLocal) {
-            convertBlockExpressionWithoutBuilding(scriptInitializer).build()
         }
     }
 
@@ -2895,88 +2641,4 @@ class LightTreeRawFirDeclarationBuilder(
             }
         }
     }
-
-    private val SCRIPT_DECLARATION_TOKENS = setOf(
-        CLASS, FUN, KtNodeTypes.PROPERTY, TYPEALIAS, OBJECT_DECLARATION, CLASS_INITIALIZER,
-        MODIFIER_LIST, SCRIPT_INITIALIZER, DESTRUCTURING_DECLARATION
-    )
-
-    override fun convertScript(
-        script: LighterASTNode,
-        scriptSource: KtSourceElement,
-        fileName: String,
-        setup: FirScriptBuilder.() -> Unit,
-    ): FirScript {
-        val scriptName = firScriptName(fileName)
-        val scriptSymbol = FirScriptSymbol(context.packageFqName.child(scriptName))
-
-        return buildScript {
-            source = scriptSource
-            moduleData = baseModuleData
-            origin = FirDeclarationOrigin.Source
-            name = scriptName
-            symbol = scriptSymbol
-
-            val childNodes = script.getChildNodeByType(BLOCK)?.getChildrenAsArray().orEmpty()
-                .filterNotNull()
-                .filter { it.tokenType in SCRIPT_DECLARATION_TOKENS }
-
-            val scriptDeclarationsIter = childNodes.listIterator()
-            context.withContainerScriptSymbol(symbol) {
-                val modifierLists = mutableListOf<LighterASTNode>()
-                while (scriptDeclarationsIter.hasNext()) {
-                    val declarationSource = scriptDeclarationsIter.next()
-                    val isLast = !scriptDeclarationsIter.hasNext()
-                    when (declarationSource.tokenType) {
-                        SCRIPT_INITIALIZER -> {
-                            val initializer = convertScriptInitializer(
-                                scriptInitializer = declarationSource,
-                                containingDeclarationSymbol = scriptSymbol,
-                                // the last anonymous initializer could be converted to a property, and its symbol will be dropped
-                                // therefore we should not rely on it as a containing declaration symbol, and use the parent one instead
-                                isLocal = isLast,
-                            )
-
-                            initializer.isScriptTopLevelDeclaration = true
-                            declarations.add(initializer)
-                        }
-
-                        DESTRUCTURING_DECLARATION -> {
-                            val destructuringDeclaration = convertDestructingDeclaration(declarationSource)
-                            val destructuringContainerVar = generateTemporaryVariable(
-                                moduleData = baseModuleData,
-                                source = declarationSource.toFirSourceElement(),
-                                name = Name.special("<destruct>"),
-                                initializer = destructuringDeclaration.initializer,
-                                extractedAnnotations = destructuringDeclaration.annotations,
-                                origin = FirDeclarationOrigin.Synthetic.ScriptTopLevelDestructuringDeclarationContainer
-                            ).apply {
-                                isScriptTopLevelDeclaration = true
-                                isDestructuringDeclarationContainerVariable = true
-                            }
-                            addDestructuringStatements(
-                                declarations,
-                                baseModuleData,
-                                destructuringDeclaration,
-                                destructuringContainerVar,
-                                isTmpVariable = true,
-                                forceLocal = false,
-                            ) {
-                                configureScriptDestructuringDeclarationEntry(it, destructuringContainerVar)
-                                it.isScriptTopLevelDeclaration = true
-                            }
-                        }
-
-                        else -> {
-                            convertDeclarationFromClassBody(declarationSource, declarations, classWrapper = null, modifierLists)
-                            declarations.lastOrNull()?.isScriptTopLevelDeclaration = true
-                        }
-                    }
-                }
-                convertDanglingModifierListsInClassBody(modifierLists, declarations)
-                setup()
-            }
-        }
-    }
-
 }
