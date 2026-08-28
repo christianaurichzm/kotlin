@@ -12,12 +12,8 @@ import kotlin.math.pow
 import kotlin.math.round
 import kotlin.test.*
 
-private fun testOnlyOnNativeAndWasm(action: () -> Unit) {
-    testOn({ it in listOf(TestPlatform.Native, TestPlatform.WasmJs, TestPlatform.WasmWasi) }, action)
-}
-
-private fun testExceptOnNativeAndWasm(action: () -> Unit) {
-    testOn({ it !in listOf(TestPlatform.Native, TestPlatform.WasmJs, TestPlatform.WasmWasi) }, action)
+private fun testOnlyOnJvmAndJs(action: () -> Unit) {
+    testOn({ it == TestPlatform.Jvm || it == TestPlatform.Js }, action)
 }
 
 class StringNumberConversionTest {
@@ -183,7 +179,7 @@ class StringNumberConversionTest {
                 assertFailsOrNull("-infinity")
             }
 
-            testExceptOnNativeAndWasm {
+            testOnlyOnJvmAndJs {
                 assertProduces("123e2147483647", Double.POSITIVE_INFINITY)
                 assertProduces("-123e2147483647", Double.NEGATIVE_INFINITY)
 
@@ -266,7 +262,7 @@ class StringNumberConversionTest {
             assertFailsOrNull("0x.11ff33p")
             assertFailsOrNull("0x11ff33.22ee44P")
 
-            testOnlyOnNativeAndWasm {
+            testExceptOn(TestPlatform.Js) {
                 // Valid hex numbers
                 // 1. No fractional part
                 assertProduces("0x11ff33p2", 4_717_772.0)
@@ -292,7 +288,7 @@ class StringNumberConversionTest {
             assertFailsOrNull("123e+")
             assertFailsOrNull("123e-")
 
-            testOnlyOnNativeAndWasm {
+            testExceptOn(TestPlatform.Js) {
                 // Valid float suffix
                 assertProduces("1f", 1.0)
                 assertProduces("1.5f", 1.5)
@@ -352,7 +348,7 @@ class StringNumberConversionTest {
             assertFailsOrNull("1e+z1")
             assertFailsOrNull("1e-z1")
 
-            testOnlyOnNativeAndWasm {
+            testExceptOn(TestPlatform.Js) {
                 // Test special whitespace characters as trailing or leading characters
                 for (i in 0..0x20) {
                     assertProduces("${i.toChar()}77", 77.0)
@@ -399,7 +395,7 @@ class StringNumberConversionTest {
                 assertFailsOrNull("-infinity")
             }
 
-            testExceptOnNativeAndWasm {
+            testOnlyOnJvmAndJs {
                 assertProduces("123e2147483647", Float.POSITIVE_INFINITY)
                 assertProduces("-123e2147483647", Float.NEGATIVE_INFINITY)
 
@@ -443,7 +439,7 @@ class StringNumberConversionTest {
             assertFailsOrNull("0x.11ff33p")
             assertFailsOrNull("0x11ff33.22ee44P")
 
-            testOnlyOnNativeAndWasm {
+            testExceptOn(TestPlatform.Js) {
                 // Valid hex numbers
                 // 1. No fractional part
                 assertProduces("0x11ff33p2", 4_717_772.0f)
@@ -467,7 +463,7 @@ class StringNumberConversionTest {
             assertFailsOrNull("2.123z4")
             assertFailsOrNull("2.123e4t")
 
-            testOnlyOnNativeAndWasm {
+            testExceptOn(TestPlatform.Js) {
                 // Valid float suffix
                 assertProduces("1f", 1.0f)
                 assertProduces("1.5f", 1.5f)
@@ -527,7 +523,7 @@ class StringNumberConversionTest {
             assertFailsOrNull("1e+z1")
             assertFailsOrNull("1e-z1")
 
-            testOnlyOnNativeAndWasm {
+            testExceptOn(TestPlatform.Js) {
                 // Test special whitespace characters as trailing or leading characters
                 for (i in 0..0x20) {
                     assertProduces("${i.toChar()}77", 77.0f)
@@ -861,7 +857,7 @@ class FpNumberToStringTest {
         assertEquals(Double.POSITIVE_INFINITY.toString(), "Infinity")
         assertEquals(Double.NEGATIVE_INFINITY.toString(), "-Infinity")
 
-        testOnlyOnNativeAndWasm {
+        testExceptOn(TestPlatform.Js) {
             assertEquals("1.234123412431233E107", identity(1.234123412431233E107).toString())
             assertEquals("1.2341234124312331E107", identity(1.2341234124312331E107).toString())
             assertEquals("1.2341234124312331E107", identity(1.2341234124312332E107).toString())
