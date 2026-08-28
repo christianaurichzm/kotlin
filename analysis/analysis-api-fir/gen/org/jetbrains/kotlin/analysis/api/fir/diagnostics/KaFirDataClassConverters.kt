@@ -1945,6 +1945,13 @@ private fun KaDiagnosticConverterBuilder.addConversions39() {
             token,
         )
     }
+    add(FirErrors.COMPILER_REQUIRED_ANNOTATION_ARGUMENT_MUST_BE_LITERAL) { firDiagnostic ->
+        CompilerRequiredAnnotationArgumentMustBeLiteralImpl(
+            firDiagnostic.a,
+            firDiagnostic as KtPsiDiagnostic,
+            token,
+        )
+    }
     add(FirErrors.CONTEXT_PARAMETER_WITH_DEFAULT) { firDiagnostic ->
         ContextParameterWithDefaultImpl(
             firDiagnostic as KtPsiDiagnostic,
