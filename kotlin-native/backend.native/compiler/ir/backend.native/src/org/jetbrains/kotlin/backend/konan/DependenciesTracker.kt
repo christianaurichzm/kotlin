@@ -249,14 +249,12 @@ internal class DependenciesTrackerImpl(
                             }
         }
 
-        private fun resolveDependency(dependency: DependenciesTracker.UnresolvedDependency) =
-                DependenciesTracker.ResolvedDependency(
-                        allLibraries[dependency.libName] ?: error("Unknown library: ${dependency.libName}"),
-                        dependency.kind)
+        private fun resolveDependency(dependency: DependenciesTracker.UnresolvedDependency): DependenciesTracker.ResolvedDependency? =
+                allLibraries[dependency.libName]?.let { DependenciesTracker.ResolvedDependency(it, dependency.kind) }
 
         private fun addAllDependencies(cachedLibrary: CachedLibraries.Cache) {
             cachedLibrary.bitcodeDependencies
-                    .map { resolveDependency(it) }
+                    .mapNotNull { resolveDependency(it) }
                     .forEach { addDependency(it) }
         }
 
@@ -266,7 +264,7 @@ internal class DependenciesTrackerImpl(
             is CachedLibraries.Cache.PerFile ->
                 files.forEach { file ->
                     cachedLibrary.getFileDependencies(file.name)
-                            .map { resolveDependency(it) }
+                            .mapNotNull { resolveDependency(it) }
                             .forEach { addDependency(it) }
                 }
         }
